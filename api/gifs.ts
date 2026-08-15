@@ -1,4 +1,4 @@
-import { GIF_CATEGORIES } from '../src/data/categoriesData';
+import { GIF_CATEGORIES } from '../src/data/categoriesData.ts';
 
 type GifRecord = {
   id: string;
