@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { searchOnlineGifs } from "./src/services/gifSearch";
-import { ANIME_GIFS_DATABASE } from "./src/data/animeGifs";
+import { GIF_CATEGORIES } from "./src/data/categoriesData";
 
 async function startServer() {
   const app = express();
@@ -10,7 +10,7 @@ async function startServer() {
 
   app.use(express.json());
 
-  // CORS middleware for external bot access (Telegram/Discord bots)
+  // CORS middleware para permitir bots de Telegram, Discord, Python, etc.
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -21,63 +21,87 @@ async function startServer() {
     next();
   });
 
-  // API Route: Health check
+  // Health check
   app.get("/api/health", (req, res) => {
-    res.json({ status: "online", bot: "Raphael", version: "2.5" });
+    res.json({ 
+      status: "online", 
+      service: "Raphael GIF Gateway", 
+      mode: "Direct Web Scraper Engine", 
+      version: "5.0" 
+    });
   });
 
-  // API Route: Real-time search endpoint for Discord, Telegram & Web
-  // Example: /api/gifs?key=raphaelsboting&search=anime abraço
+  // 1. Endpoint principal da API para desenvolvedores e bots (GET)
+  // Exemplo: /api/gifs?key=raphaelsboting&search=naruto&category=animes&limit=20
   app.get("/api/gifs", async (req, res) => {
     const key = (req.query.key as string) || (req.headers["x-api-key"] as string) || "raphaelsboting";
-    const searchQuery = (req.query.search as string) || (req.query.category as string) || (req.query.q as string) || "anime abraço";
+    const searchQuery = (req.query.search as string) || (req.query.q as string) || "geral";
+    const forcedCategory = (req.query.category as string) || undefined;
+    const limit = Math.min(parseInt((req.query.limit as string) || "20", 10), 50);
+    const pos = (req.query.pos as string) || (req.query.next as string) || undefined;
 
-    const result = await searchOnlineGifs(searchQuery);
+    const result = await searchOnlineGifs(searchQuery, forcedCategory, limit, pos);
 
     res.json({
       status: 200,
       success: true,
       key_used: key,
       query: searchQuery,
+      category: result.categoryMatched,
+      gif_url: result.gifUrl,
+      all_gifs: result.allGifs,
+      results: result.results,
+      next: result.next,
+      total_found: result.totalFound,
       search_url: result.tenorSearchUrl,
       tenor_search_url: result.tenorSearchUrl,
-      gif_url: result.gifUrl,
-      total_found: result.totalFound,
       from_cache: result.fromCache,
-      source: "Tenor Direct Engine"
+      source: "Tenor Web Scraper (Live Direct)"
     });
   });
 
-  // API Route: Search via POST for bots
+  // 2. Endpoint POST para requisições em JSON (Bots / Backend)
   app.post("/api/gifs/search", async (req, res) => {
     const key = req.body.key || "raphaelsboting";
-    const search = req.body.search || req.body.category || req.body.q || "anime abraço";
+    const search = req.body.search || req.body.q || "geral";
+    const forcedCategory = req.body.category || undefined;
+    const limit = Math.min(parseInt(req.body.limit || "20", 10), 50);
+    const pos = req.body.pos || req.body.next || undefined;
 
-    const result = await searchOnlineGifs(search);
+    const result = await searchOnlineGifs(search, forcedCategory, limit, pos);
 
     res.json({
       status: 200,
       success: true,
       key_used: key,
       query: search,
+      category: result.categoryMatched,
+      gif_url: result.gifUrl,
+      all_gifs: result.allGifs,
+      results: result.results,
+      next: result.next,
+      total_found: result.totalFound,
       search_url: result.tenorSearchUrl,
       tenor_search_url: result.tenorSearchUrl,
-      gif_url: result.gifUrl,
-      total_found: result.totalFound,
       from_cache: result.fromCache,
-      source: "Tenor Direct Engine"
+      source: "Tenor Web Scraper (Live Direct)"
     });
   });
 
-  // API Route: List available categories
+  // 3. Lista de categorias ativas
   app.get("/api/categories", (req, res) => {
     res.json({
-      categories: Object.keys(ANIME_GIFS_DATABASE),
-      total_categories: Object.keys(ANIME_GIFS_DATABASE).length
+      categories: GIF_CATEGORIES.map(c => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        total_gifs: c.gifs.length
+      })),
+      total_categories: GIF_CATEGORIES.length
     });
   });
 
-  // Vite middleware for development vs static build
+  // Vite middleware
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -93,7 +117,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Raphael Bot API & Web server running on http://localhost:${PORT}`);
+    console.log(`Raphael GIF Gateway running on http://localhost:${PORT}`);
   });
 }
 

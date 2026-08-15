@@ -1,39 +1,35 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { SearchBar } from './components/SearchBar';
 import { Toast } from './components/Toast';
-import { CommandItem } from './components/CommandItem';
-import { BotApiSection } from './components/BotApiSection';
+import { CategorySelector } from './components/CategorySelector';
+import { GifGallery, DisplayGif } from './components/GifGallery';
+import { DocumentationModal } from './components/DocumentationModal';
 import { LoadingScreen } from './components/LoadingScreen';
-import { ONLY_COMMANDS } from './data/commands';
-import { MoreHorizontal } from 'lucide-react';
-import { Command } from './types';
+import { GIF_CATEGORIES } from './data/categoriesData';
+import { searchOnlineGifs } from './services/gifSearch';
+import { BookOpen, ExternalLink } from 'lucide-react';
 
 export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string>('geral');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
+  const [isDocsOpen, setIsDocsOpen] = useState<boolean>(false);
+  
+  // Real-time live GIFs state
+  const [liveGifs, setLiveGifs] = useState<DisplayGif[]>([]);
+  const [nextPos, setNextPos] = useState<string | undefined>(undefined);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Tela de carregamento rápida e elegante na inicialização
     const timer = setTimeout(() => {
       setIsAppLoading(false);
-    }, 850);
+    }, 450);
     return () => clearTimeout(timer);
   }, []);
-
-  // Real-time search filtering by name and description
-  const filteredCommands = useMemo(() => {
-    if (!searchQuery.trim()) return ONLY_COMMANDS;
-    const q = searchQuery.toLowerCase().trim();
-    return ONLY_COMMANDS.filter((cmd) => {
-      const matchName = cmd.name.toLowerCase().includes(q);
-      const matchDesc = cmd.description.toLowerCase().includes(q);
-      const matchAliases = cmd.aliases.some((a) => a.toLowerCase().includes(q));
-      return matchName || matchDesc || matchAliases;
-    });
-  }, [searchQuery]);
 
   const showToast = (text: string) => {
     setToastMessage(text);
@@ -42,13 +38,144 @@ export default function App() {
     }, 2000);
   };
 
-  const handleCopyCommand = (cmd: Command) => {
-    navigator.clipboard.writeText(cmd.usage);
-    showToast(`Comando ${cmd.usage} copiado!`);
-  };
+  // Current category data
+  const currentCategoryData = useMemo(() => {
+    return GIF_CATEGORIES.find((c) => c.id === activeCategory) || GIF_CATEGORIES[0];
+  }, [activeCategory]);
 
-  const handleToggleExpand = (id: string) => {
-    setExpandedId((prev) => (prev === id ? null : id));
+  // Initial seed fallback GIFs strictly from the selected category
+  const fallbackList = useMemo(() => {
+    return currentCategoryData.gifs.map((g) => ({
+      ...g,
+      category: currentCategoryData.name,
+    }));
+  }, [currentCategoryData]);
+
+  // 1. Fetch category GIFs when activeCategory changes
+  useEffect(() => {
+    if (searchQuery.trim()) return;
+
+    let isMounted = true;
+    setHasMore(true);
+    const fetchCategoryGifs = async () => {
+      const queryTerm = activeCategory === 'geral' 
+        ? 'trending popular' 
+        : currentCategoryData.name;
+
+      try {
+        const result = await searchOnlineGifs(queryTerm, currentCategoryData.id, 24);
+        if (isMounted && result.results && result.results.length > 0) {
+          const formatted: DisplayGif[] = result.results.map((r, i) => ({
+            id: r.id || `${activeCategory}-${i}`,
+            title: r.title || `${currentCategoryData.name} #${i + 1}`,
+            url: r.media[0]?.gif?.url || r.media[0]?.mediumgif?.url || r.url,
+            category: currentCategoryData.name,
+            tags: r.tags || [activeCategory],
+          }));
+          setLiveGifs(formatted);
+          setNextPos(result.next);
+        }
+      } catch {
+        // Fallback silencioso usando a lista estrita da categoria
+      }
+    };
+
+    fetchCategoryGifs();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCategory, currentCategoryData]);
+
+  // 2. Real-Time Search with Debounce
+  useEffect(() => {
+    const term = searchQuery.trim();
+    if (!term) return;
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    setHasMore(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const result = await searchOnlineGifs(term, undefined, 30);
+        if (result.results && result.results.length > 0) {
+          const formatted: DisplayGif[] = result.results.map((r, i) => ({
+            id: r.id || `search-${i}-${Date.now()}`,
+            title: r.title || `GIF de ${term}`,
+            url: r.media[0]?.gif?.url || r.media[0]?.mediumgif?.url || r.url,
+            category: result.categoryMatched || 'Tenor',
+            tags: r.tags || [term],
+          }));
+          setLiveGifs(formatted);
+          setNextPos(result.next);
+        }
+      } catch {
+        // Ignora
+      }
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [searchQuery]);
+
+  // Deduplicated Active GIFs strictly
+  const displayGifs = useMemo(() => {
+    const rawList = liveGifs.length > 0 ? liveGifs : fallbackList;
+    const seen = new Set<string>();
+    const unique: DisplayGif[] = [];
+    for (const item of rawList) {
+      if (item.url && !seen.has(item.url)) {
+        seen.add(item.url);
+        unique.push(item);
+      }
+    }
+    return unique;
+  }, [liveGifs, fallbackList]);
+
+  // Infinite scroll loader
+  const [hasMore, setHasMore] = useState<boolean>(true);
+
+  // Load More Handler (Triggered on Scroll)
+  const handleLoadMoreGifs = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    try {
+      const term = searchQuery.trim() || currentCategoryData.name;
+      const forcedCat = searchQuery.trim() ? undefined : currentCategoryData.id;
+      
+      const res = await searchOnlineGifs(term, forcedCat, 16, nextPos);
+
+      if (res.results && res.results.length > 0) {
+        const newItems: DisplayGif[] = res.results.map((r, i) => ({
+          id: `${r.id || 'extra'}-${Date.now()}-${i}`,
+          title: r.title || `${term} #${i + 1}`,
+          url: r.media[0]?.gif?.url || r.media[0]?.mediumgif?.url || r.url,
+          category: currentCategoryData.name,
+          tags: r.tags || [term],
+        }));
+
+        setLiveGifs((prev) => {
+          const existingUrls = new Set(prev.map(g => g.url));
+          const uniqueNew = newItems.filter(item => !existingUrls.has(item.url));
+          if (uniqueNew.length === 0) {
+            setHasMore(false);
+            return prev;
+          }
+          return [...prev, ...uniqueNew];
+        });
+
+        setNextPos(res.next);
+      } else {
+        setHasMore(false);
+      }
+    } catch {
+      // Ignora erro silenciosamente durante scroll automático
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
   return (
@@ -58,101 +185,90 @@ export default function App() {
         {isAppLoading && <LoadingScreen isLoading={isAppLoading} />}
       </AnimatePresence>
 
-      {/* Mobile-Only Container */}
-      <div className="w-full max-w-md min-h-screen bg-[#0e1621] flex flex-col pb-12">
+      {/* Main App Container */}
+      <div className="w-full max-w-md min-h-screen bg-[#0e1621] flex flex-col pb-8">
         
-        {/* Title Header */}
-        <div className="pt-8 pb-3 px-4 text-center">
-          <h1 className="text-xl font-bold text-white tracking-tight">
-            Raphael
-          </h1>
-          <p className="text-xs text-[#8293a4] font-medium mt-0.5">
-            @raphaelsbot
-          </p>
-        </div>
+        {/* Top Header with Documentation Button */}
+        <header className="pt-6 pb-2 px-4 flex items-center justify-between border-b border-[#1c2733]/70 mb-1">
+          <div>
+            <h1 className="text-xl font-black text-white tracking-tight uppercase flex items-center gap-1.5">
+              <span>Raphael GIFs</span>
+            </h1>
+            <p className="text-[10px] text-[#8293a4] font-bold tracking-wide">
+              @raphaelsboting • Tenor Gateway
+            </p>
+          </div>
 
-        {/* Real-Time Search Bar */}
+          {/* Documentation & API Button */}
+          <button
+            onClick={() => setIsDocsOpen(true)}
+            className="py-2 px-3 rounded-xl bg-[#1c2733] hover:bg-[#2481cc] text-[#2aabee] hover:text-white transition-all text-xs font-bold flex items-center gap-1.5 border border-[#253241] shadow-sm active:scale-95 cursor-pointer"
+            title="Abrir Documentação e API"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Documentação</span>
+          </button>
+        </header>
+
+        {/* Global Search Bar */}
         <SearchBar
           query={searchQuery}
           onQueryChange={setSearchQuery}
-          resultCount={filteredCommands.length}
+          resultCount={displayGifs.length}
         />
 
-        {/* Commands List in Telegram Group Style */}
-        <div className="px-4 space-y-2 mt-1">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-xs font-semibold text-[#8293a4] uppercase tracking-wider">
-              Comandos
-            </h2>
-            <span className="text-[11px] text-[#708499]">
-              Toque para copiar & preview
-            </span>
-          </div>
+        {/* Clean Category Bar with Horizontal Scroll Only */}
+        {!searchQuery.trim() && (
+          <CategorySelector
+            activeCategory={activeCategory}
+            onSelectCategory={(catId) => {
+              setActiveCategory(catId);
+              setLiveGifs([]);
+            }}
+          />
+        )}
 
-          {/* Solid Container with Smooth Spring Transitions */}
-          <div className="bg-[#1c2733] rounded-2xl overflow-hidden shadow-none">
-            {filteredCommands.map((cmd, idx) => {
-              const isLast = idx === filteredCommands.length - 1 && !searchQuery.trim();
+        {/* GIF Gallery Grid with Real Titles & Actions (Download, Copy, Share, Code) */}
+        <GifGallery
+          gifs={displayGifs}
+          activeCategoryName={searchQuery.trim() ? `Busca: "${searchQuery}"` : currentCategoryData.name}
+          onShowToast={showToast}
+          onLoadMore={handleLoadMoreGifs}
+          isLoadingMore={isLoadingMore}
+          hasMore={hasMore}
+        />
 
-              return (
-                <CommandItem
-                  key={cmd.id}
-                  command={cmd}
-                  isExpanded={expandedId === cmd.id}
-                  onToggleExpand={() => handleToggleExpand(cmd.id)}
-                  onCopy={() => handleCopyCommand(cmd)}
-                  isLast={idx === filteredCommands.length - 1 && isLast}
-                />
-              );
-            })}
-
-            {/* "Entre outros..." Row */}
-            {(!searchQuery.trim() || 'entre outros'.includes(searchQuery.toLowerCase().trim())) && (
-              <div 
-                onClick={() => showToast('Comandos adicionais disponíveis diretamente no bot!')}
-                className="w-full flex items-center justify-between p-3.5 active:bg-[#253342] transition-colors cursor-pointer text-left border-t border-[#253241]/70"
-              >
-                <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
-                  <div className="w-7 h-7 rounded-full bg-[#101720] flex items-center justify-center flex-shrink-0">
-                    <MoreHorizontal className="w-4 h-4 text-[#8293a4]" />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <span className="text-sm font-semibold text-white">
-                      Entre outros...
-                    </span>
-                    <p className="text-xs text-[#8293a4] truncate mt-0.5">
-                      Outros comandos adicionais disponíveis no bot
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 flex-shrink-0 text-[#8293a4]">
-                  <span className="text-[11px] text-[#708499]">Ver mais</span>
-                </div>
-              </div>
-            )}
-
-            {/* Empty Search State */}
-            {filteredCommands.length === 0 && searchQuery.trim() && (
-              <div className="p-6 text-center text-[#8293a4] space-y-1">
-                <p className="text-sm font-semibold text-white">Nenhum comando encontrado</p>
-                <p className="text-xs">Tente buscar por nome (ex: abraco, kiss, socar...)</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* API for External Telegram / Discord Bots Section */}
-        <BotApiSection onShowToast={showToast} />
-
-        {/* Minimalist Footer with requested label */}
-        <div className="mt-8 pt-4 pb-4 text-center text-[11px] text-[#708499] px-4 space-y-1">
-          <p>Raphael Bot API • v2.5</p>
-          <p className="text-[10px] text-[#566573] tracking-wide">tenor implement</p>
-        </div>
+        {/* Footer with Clean Tenor Attribution */}
+        <footer className="mt-10 pt-4 pb-6 text-center text-[11px] text-[#708499] px-4 space-y-2 border-t border-[#1c2733]/60">
+          <p className="font-bold text-white/80">Raphael GIF Platform • 2026</p>
+          <p className="text-[11px]">
+            Desenvolvido para Bots e Desenvolvedores. Mídias fornecidas via{' '}
+            <a 
+              href="https://tenor.com" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-[#2aabee] hover:underline font-bold inline-flex items-center gap-0.5"
+            >
+              <span>Tenor</span>
+              <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          </p>
+          <button
+            onClick={() => setIsDocsOpen(true)}
+            className="text-[10px] text-[#2481cc] hover:underline font-semibold cursor-pointer"
+          >
+            Ver Termos, Políticas & Endpoints da API
+          </button>
+        </footer>
 
       </div>
+
+      {/* Complete Documentation & API Modal */}
+      <DocumentationModal
+        isOpen={isDocsOpen}
+        onClose={() => setIsDocsOpen(false)}
+        onShowToast={showToast}
+      />
 
       {/* Floating Toast Notification */}
       <Toast message={toastMessage} />

@@ -1,121 +1,108 @@
-import { getRandomGif, ANIME_GIFS_DATABASE } from "../data/animeGifs";
+import { scrapeGifsFromSite, generateTenorSlug } from "./tenorScraper";
+import { detectCategoryFromQuery, getCategoryGifs, GIF_CATEGORIES } from "../data/categoriesData";
+import { GifSearchResult, TenorResultItem } from "../types";
 
-// Cache in-memory com limite fixo para evitar sobrecarga e quedas
-interface CacheEntry {
-  gifs: string[];
-  lastUsedIndex: number;
-  timestamp: number;
-  tenorUrl: string;
-}
+export { generateTenorSlug as getTenorSlug };
 
-const GIF_CACHE = new Map<string, CacheEntry>();
-const CACHE_TTL = 1000 * 60 * 30; // 30 minutos de persistência na memória
-const MAX_CACHE_ENTRIES = 100; // Limite fixo de consultas armazenadas
+/**
+ * Puxa GIFs: no navegador consulta a nossa API (/api/gifs); no backend Node faz a extração direta do site
+ */
+export async function searchOnlineGifs(
+  rawQuery: string,
+  forcedCategory?: string,
+  limit: number = 30,
+  pos?: string
+): Promise<GifSearchResult> {
+  const cleanQuery = (rawQuery || "geral").trim();
+  const matchedCategory = forcedCategory || detectCategoryFromQuery(cleanQuery);
+  const slug = generateTenorSlug(cleanQuery);
+  const tenorSearchWebUrl = `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`;
 
-function sanitizeQuery(query: string): string {
-  return query.trim().toLowerCase();
-}
+  // Se estiver rodando no navegador do cliente (React)
+  if (typeof window !== "undefined") {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-function getTenorSlug(query: string): string {
-  const clean = query
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-");
-  return clean.endsWith("-gifs") ? clean : `${clean}-gifs`;
-}
+      const params = new URLSearchParams({
+        search: cleanQuery,
+        key: "raphaelsboting",
+        limit: limit.toString(),
+      });
+      if (forcedCategory) params.append("category", forcedCategory);
+      if (pos) params.append("pos", pos);
 
-export async function searchOnlineGifs(query: string): Promise<{
-  gifUrl: string;
-  allGifs: string[];
-  searchUrl: string;
-  tenorSearchUrl: string;
-  totalFound: number;
-  fromCache: boolean;
-}> {
-  const cleanQuery = sanitizeQuery(query || "anime abraco");
-  const slug = getTenorSlug(cleanQuery);
-  const tenorSearchUrl = `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`;
-  const apiEndpointUrl = `https://kaise.space/api/gifs?key=raphaelsboting&search=${encodeURIComponent(cleanQuery)}`;
+      const response = await fetch(`/api/gifs?${params.toString()}`, {
+        signal: controller.signal,
+        headers: {
+          Accept: "application/json",
+        },
+      });
+      clearTimeout(timeoutId);
 
-  // 1. Verifica se já está pré-carregado no cache na memória
-  const cached = GIF_CACHE.get(cleanQuery);
-  const now = Date.now();
-
-  if (cached && now - cached.timestamp < CACHE_TTL && cached.gifs.length > 0) {
-    // Rotaciona para o próximo GIF pré-carregado sem fazer requisição externa
-    cached.lastUsedIndex = (cached.lastUsedIndex + 1) % cached.gifs.length;
-    const nextGif = cached.gifs[cached.lastUsedIndex];
-
-    return {
-      gifUrl: nextGif,
-      allGifs: cached.gifs,
-      searchUrl: tenorSearchUrl,
-      tenorSearchUrl,
-      totalFound: cached.gifs.length,
-      fromCache: true,
-    };
-  }
-
-  // 2. Busca uma lista fixa de até 50 GIFs da pesquisa de uma única vez
-  let fetchedGifs: string[] = [];
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout anti-crash
-
-    const remoteUrl = `https://g.tenor.com/v1/search?q=${encodeURIComponent(cleanQuery)}&key=LIVDSRZULELA&limit=50`;
-    const apiRes = await fetch(remoteUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (apiRes.ok) {
-      const data: any = await apiRes.json();
-      if (data.results && data.results.length > 0) {
-        fetchedGifs = data.results
-          .map((r: any) => {
-            return (
-              r.media?.[0]?.gif?.url ||
-              r.media?.[0]?.mediumgif?.url ||
-              r.url
-            );
-          })
-          .filter(Boolean);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.results && data.results.length > 0) {
+          return {
+            gifUrl: data.gif_url || data.all_gifs?.[0] || data.results[0]?.media?.[0]?.gif?.url,
+            allGifs: data.all_gifs || data.results.map((r: any) => r.media?.[0]?.gif?.url || r.url),
+            results: data.results,
+            searchUrl: data.search_url || tenorSearchWebUrl,
+            tenorSearchUrl: data.tenor_search_url || tenorSearchWebUrl,
+            totalFound: data.total_found || data.results.length,
+            fromCache: Boolean(data.from_cache),
+            categoryMatched: data.category || matchedCategory,
+            next: data.next || "20",
+          };
+        }
       }
+    } catch {
+      // Fallback local seguro no navegador
     }
-  } catch (err) {
-    console.error("Cache fetch timeout/error, usando banco local seguro:", err);
+
+    return createLocalCategoryResult(cleanQuery, matchedCategory, tenorSearchWebUrl);
   }
 
-  // 3. Se não encontrou ou falhou, junta com a base de anime local
-  const fallback = getRandomGif(cleanQuery);
-  const localCategoryGifs = ANIME_GIFS_DATABASE[fallback.category] || ANIME_GIFS_DATABASE.abraco;
+  // Se estiver rodando no servidor Node.js (Express backend)
+  return await scrapeGifsFromSite(cleanQuery, forcedCategory, limit);
+}
 
-  const finalPool = Array.from(new Set([...fetchedGifs, ...localCategoryGifs]));
+function createLocalCategoryResult(
+  query: string,
+  category: string,
+  tenorUrl: string
+): GifSearchResult {
+  const catObj = GIF_CATEGORIES.find(c => c.id === category) || GIF_CATEGORIES[0];
+  
+  const results: TenorResultItem[] = catObj.gifs.map((g) => ({
+    id: g.id,
+    title: g.title,
+    content_description: g.title,
+    itemurl: tenorUrl,
+    url: g.url,
+    hasaudio: false,
+    media: [
+      {
+        gif: { url: g.url, dims: [498, 278], duration: 0, size: 0 },
+        tinygif: { url: g.url, dims: [220, 122], duration: 0, size: 0 },
+        mp4: { url: "" },
+      },
+    ],
+    tags: g.tags,
+  }));
 
-  // 4. Salva no cache com controle de tamanho para não estourar a memória
-  if (GIF_CACHE.size >= MAX_CACHE_ENTRIES) {
-    const oldestKey = GIF_CACHE.keys().next().value;
-    if (oldestKey) GIF_CACHE.delete(oldestKey);
-  }
-
-  const selectedIdx = Math.floor(Math.random() * finalPool.length);
-  const selectedGif = finalPool[selectedIdx] || fallback.url;
-
-  GIF_CACHE.set(cleanQuery, {
-    gifs: finalPool,
-    lastUsedIndex: selectedIdx,
-    timestamp: now,
-    tenorUrl: tenorSearchUrl,
-  });
+  const allGifs = results.map(r => r.url);
+  const selectedIdx = Math.floor(Math.random() * allGifs.length);
 
   return {
-    gifUrl: selectedGif,
-    allGifs: finalPool,
-    searchUrl: tenorSearchUrl,
-    tenorSearchUrl,
-    totalFound: finalPool.length,
+    gifUrl: allGifs[selectedIdx] || allGifs[0],
+    allGifs,
+    results,
+    searchUrl: tenorUrl,
+    tenorSearchUrl: tenorUrl,
+    totalFound: allGifs.length,
     fromCache: false,
+    categoryMatched: category,
+    next: "20",
   };
 }
