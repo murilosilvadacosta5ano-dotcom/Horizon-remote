@@ -72,7 +72,7 @@ export const GifGallery: React.FC<GifGalleryProps> = ({
       (entries) => {
         if (entries[0]?.isIntersecting) void requestMore();
       },
-      { rootMargin: '700px 0px', threshold: 0 }
+      { rootMargin: '1200px 0px', threshold: 0 }
     );
 
     observer.observe(node);
@@ -171,23 +171,19 @@ export const GifGallery: React.FC<GifGalleryProps> = ({
       </div>
 
       {uniqueGifs.length === 0 ? (
-        <div className="py-16 text-center text-[#8293a4] flex flex-col items-center justify-center gap-2">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <p className="text-xs font-semibold">Carregando GIFs...</p>
+        <div className="py-16 text-center text-[#8293a4] flex items-center justify-center">
+          <Loader2 className="w-5 h-5 animate-spin" aria-label="Carregando" />
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
           {uniqueGifs.map((gif, index) => {
             const isCopied = copiedId === gif.id;
             return (
-              <motion.article
+              <article
                 key={`${gif.id}-${gif.url}-${index}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.16 }}
                 onClick={() => setSelectedGif(gif)}
                 onContextMenu={(event) => event.preventDefault()}
-                className="group relative bg-[#161f2a] rounded-2xl overflow-hidden border border-[#253241]/60 hover:border-[#2481cc]/60 transition-all flex flex-col shadow-sm cursor-pointer select-none"
+                className="group relative bg-[#161f2a] rounded-2xl overflow-hidden border border-[#253241]/60 hover:border-[#2481cc]/60 transition-colors flex flex-col shadow-sm cursor-pointer select-none"
                 role="button"
                 tabIndex={0}
                 aria-label={`Abrir GIF ${gif.title}`}
@@ -203,7 +199,8 @@ export const GifGallery: React.FC<GifGalleryProps> = ({
                     src={gif.url}
                     alt={gif.title}
                     referrerPolicy="no-referrer"
-                    loading={index < 6 ? 'eager' : 'lazy'}
+                    loading={index < 8 ? 'eager' : 'lazy'}
+                    decoding="async"
                     draggable={false}
                     onDragStart={(event) => event.preventDefault()}
                     onContextMenu={(event) => event.preventDefault()}
@@ -226,15 +223,14 @@ export const GifGallery: React.FC<GifGalleryProps> = ({
                     </button>
                   </div>
                 </div>
-              </motion.article>
+              </article>
             );
           })}
         </div>
       )}
 
-      <div ref={sentinelRef} className="w-full py-6 flex items-center justify-center min-h-[64px]">
-        {isLoadingMore && <div className="flex items-center gap-2 text-xs font-bold text-[#2aabee] bg-[#1c2733]/80 px-4 py-2 rounded-full border border-[#253241]/70"><Loader2 className="w-4 h-4 animate-spin" /><span>Carregando mais GIFs...</span></div>}
-        {!isLoadingMore && !hasMore && uniqueGifs.length > 0 && <span className="text-[10px] text-[#708499]">Fim dos resultados</span>}
+      <div ref={sentinelRef} className="w-full h-14 flex items-center justify-center pointer-events-none" aria-hidden="true">
+        {isLoadingMore && <Loader2 className="w-5 h-5 text-[#2aabee] animate-spin" />}
       </div>
 
       <AnimatePresence>
