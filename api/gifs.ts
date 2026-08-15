@@ -1,3 +1,5 @@
+import { GIF_CATEGORIES } from '../src/data/categoriesData';
+
 type GifRecord = {
   id: string;
   title: string;
@@ -73,20 +75,17 @@ function scoreGif(gif: GifRecord, query: string): number {
   return score;
 }
 
-async function loadCatalog(): Promise<CategoryRecord[]> {
-  // Dynamic import keeps the Vercel function from failing during module
-  // initialization if the large catalog ever contains a bad optional import.
-  const module = await import('../src/data/categoriesData');
-  return module.GIF_CATEGORIES as CategoryRecord[];
+function loadCatalog(): CategoryRecord[] {
+  return GIF_CATEGORIES as CategoryRecord[];
 }
 
-async function searchCatalog(
+function searchCatalog(
   query: string,
   category: string,
   limit: number,
   offset: number,
-): Promise<ApiResult[]> {
-  const categories = await loadCatalog();
+): ApiResult[] {
+  const categories = loadCatalog();
   const selected = category === 'geral'
     ? categories
     : categories.filter((item) => item.id === category);
@@ -103,8 +102,6 @@ async function searchCatalog(
 
   all.sort((a, b) => scoreGif(b, q) - scoreGif(a, q));
 
-  // If the requested term has no exact catalog match, use the selected
-  // category as a useful fallback rather than returning an empty API.
   const matching = q && q !== 'geral'
     ? all.filter((gif) => scoreGif(gif, q) > 0)
     : all;
@@ -126,7 +123,7 @@ async function searchCatalog(
   }));
 }
 
-export default async function handler(req: any, res: any) {
+export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
@@ -155,7 +152,7 @@ export default async function handler(req: any, res: any) {
     const limit = safeInteger(req.query?.limit, 20, 1, MAX_LIMIT);
     const offset = safeInteger(req.query?.pos ?? req.query?.offset, 0, 0, 10000);
 
-    const results = await searchCatalog(
+    const results = searchCatalog(
       rawQuery,
       category,
       limit,
