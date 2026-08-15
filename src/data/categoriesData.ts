@@ -1,4 +1,4 @@
-import { GifCategory } from '../types';
+import type { GifCategory } from '../types';
 
 export const GIF_CATEGORIES: GifCategory[] = [
   {
