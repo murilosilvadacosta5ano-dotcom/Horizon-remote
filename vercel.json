@@ -3,12 +3,9 @@
   "functions": {
     "api/gifs.ts": {
       "maxDuration": 10
+    },
+    "api/health.ts": {
+      "maxDuration": 5
     }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  }
 }
