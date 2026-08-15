@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { SearchBar } from './components/SearchBar';
 import { Toast } from './components/Toast';
@@ -11,291 +11,191 @@ import { searchOnlineGifs } from './services/gifSearch';
 import { extractTenorGifId } from './services/tenorScraper';
 import { BookOpen, ExternalLink } from 'lucide-react';
 
+const CATEGORY_QUERY: Record<string, string> = {
+  geral: 'trending gifs',
+  animes: 'anime',
+  jogos: 'gaming games',
+  desenhos: 'cartoons animation',
+  reacoes: 'reaction memes',
+  filmes: 'cinema movies',
+  series: 'tv shows series',
+};
+
+function toDisplayGifs(results: any[], categoryName: string, fallbackTag: string): DisplayGif[] {
+  const seen = new Set<string>();
+  const output: DisplayGif[] = [];
+  for (const [index, result] of results.entries()) {
+    const url = result?.media?.[0]?.gif?.url || result?.media?.[0]?.tinygif?.url || result?.url;
+    if (!url) continue;
+    const id = extractTenorGifId(url) || result?.id || `${fallbackTag}-${index}`;
+    if (seen.has(id) || seen.has(url)) continue;
+    seen.add(id);
+    seen.add(url);
+    output.push({
+      id: result?.id || `${fallbackTag}-${id}-${index}`,
+      title: result?.title || `${categoryName} #${index + 1}`,
+      url,
+      category: categoryName,
+      tags: result?.tags || [fallbackTag],
+    });
+  }
+  return output;
+}
+
 export default function App() {
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [activeCategory, setActiveCategory] = useState<string>('geral');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState('geral');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
-  const [isDocsOpen, setIsDocsOpen] = useState<boolean>(false);
-  
-  // Real-time live GIFs state
+  const [isAppLoading, setIsAppLoading] = useState(true);
+  const [isDocsOpen, setIsDocsOpen] = useState(false);
   const [liveGifs, setLiveGifs] = useState<DisplayGif[]>([]);
-  const [nextPos, setNextPos] = useState<string | undefined>(undefined);
-  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
-  
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [nextPos, setNextPos] = useState<string | undefined>();
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const requestIdRef = useRef(0);
+  const loadingMoreRef = useRef(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsAppLoading(false);
-    }, 450);
-    return () => clearTimeout(timer);
+    const timer = window.setTimeout(() => setIsAppLoading(false), 450);
+    return () => window.clearTimeout(timer);
   }, []);
+
+  const currentCategoryData = useMemo(
+    () => GIF_CATEGORIES.find((category) => category.id === activeCategory) || GIF_CATEGORIES[0],
+    [activeCategory]
+  );
+
+  const fallbackList = useMemo<DisplayGif[]>(
+    () => currentCategoryData.gifs.map((gif) => ({ ...gif, category: currentCategoryData.name })),
+    [currentCategoryData]
+  );
 
   const showToast = (text: string) => {
     setToastMessage(text);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 2000);
+    window.setTimeout(() => setToastMessage(null), 2200);
   };
 
-  // Current category data
-  const currentCategoryData = useMemo(() => {
-    return GIF_CATEGORIES.find((c) => c.id === activeCategory) || GIF_CATEGORIES[0];
-  }, [activeCategory]);
-
-  // Initial seed fallback GIFs strictly from the selected category
-  const fallbackList = useMemo(() => {
-    return currentCategoryData.gifs.map((g) => ({
-      ...g,
-      category: currentCategoryData.name,
-    }));
-  }, [currentCategoryData]);
-
-  // 1. Fetch category GIFs when activeCategory changes
-  useEffect(() => {
-    if (searchQuery.trim()) return;
-
-    let isMounted = true;
-    setHasMore(true);
-    const fetchCategoryGifs = async () => {
-      let queryTerm = currentCategoryData.name;
-      if (activeCategory === 'geral') queryTerm = 'trending gifs';
-      if (activeCategory === 'animes') queryTerm = 'anime';
-      if (activeCategory === 'jogos') queryTerm = 'gaming games';
-      if (activeCategory === 'desenhos') queryTerm = 'cartoons animation';
-      if (activeCategory === 'reacoes') queryTerm = 'reaction memes';
-      if (activeCategory === 'filmes') queryTerm = 'cinema movies';
-      if (activeCategory === 'series') queryTerm = 'tv shows series';
-
-      try {
-        const result = await searchOnlineGifs(queryTerm, currentCategoryData.id, 30);
-        if (isMounted && result.results && result.results.length > 0) {
-          const seenIds = new Set<string>();
-          const formatted: DisplayGif[] = [];
-
-          for (let i = 0; i < result.results.length; i++) {
-            const r = result.results[i];
-            const gifUrl = r.media[0]?.gif?.url || r.media[0]?.tinygif?.url || r.url;
-            const gifId = extractTenorGifId(gifUrl) || r.id || `${i}`;
-
-            if (gifUrl && !seenIds.has(gifId)) {
-              seenIds.add(gifId);
-              formatted.push({
-                id: r.id || `${activeCategory}-${gifId}-${i}`,
-                title: r.title || `${currentCategoryData.name} #${i + 1}`,
-                url: gifUrl,
-                category: currentCategoryData.name,
-                tags: r.tags || [activeCategory],
-              });
-            }
-          }
-
-          if (formatted.length > 0) {
-            setLiveGifs(formatted);
-            setNextPos(result.next);
-          }
-        }
-      } catch {
-        // Fallback silencioso usando a lista estrita da categoria
-      }
-    };
-
-    fetchCategoryGifs();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [activeCategory, currentCategoryData, searchQuery]);
-
-  // 2. Real-Time Direct Search with Debounce
   useEffect(() => {
     const term = searchQuery.trim();
-    
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    if (!term) {
-      // Restaura os GIFs da categoria ativa se a busca for limpa
-      const catGifs = currentCategoryData.gifs.map((g) => ({
-        id: g.id,
-        title: g.title,
-        url: g.url,
-        category: currentCategoryData.name,
-        tags: g.tags,
-      }));
-      setLiveGifs(catGifs);
-      setNextPos(undefined);
-      setHasMore(true);
-      return;
-    }
+    const requestId = ++requestIdRef.current;
+    const controller = new AbortController();
 
     setHasMore(true);
-    searchTimeoutRef.current = setTimeout(async () => {
+    setNextPos(undefined);
+    setLiveGifs([]);
+
+    const query = term || CATEGORY_QUERY[activeCategory] || currentCategoryData.name;
+    const category = term ? undefined : currentCategoryData.id;
+
+    const timer = window.setTimeout(async () => {
       try {
-        const result = await searchOnlineGifs(term, undefined, 30);
-        if (result.results && result.results.length > 0) {
-          const seenIds = new Set<string>();
-          const formatted: DisplayGif[] = [];
+        const result = await searchOnlineGifs(query, category, 30, 0);
+        if (controller.signal.aborted || requestId !== requestIdRef.current) return;
 
-          for (let i = 0; i < result.results.length; i++) {
-            const r = result.results[i];
-            const gifUrl = r.media[0]?.gif?.url || r.media[0]?.tinygif?.url || r.url;
-            const gifId = extractTenorGifId(gifUrl) || r.id || `${i}`;
-            
-            if (gifUrl && !seenIds.has(gifId)) {
-              seenIds.add(gifId);
-              formatted.push({
-                id: r.id || `search-${gifId}-${i}`,
-                title: r.title || `${term} #${i + 1}`,
-                url: gifUrl,
-                category: result.categoryMatched || 'Geral',
-                tags: r.tags || [term],
-              });
-            }
-          }
-
+        const formatted = toDisplayGifs(result.results || [], currentCategoryData.name, term || activeCategory);
+        if (formatted.length) {
           setLiveGifs(formatted);
           setNextPos(result.next);
+          setHasMore(formatted.length >= 10 && Boolean(result.next));
+        } else {
+          setLiveGifs(fallbackList);
+          setHasMore(false);
         }
       } catch {
-        // Ignora
+        if (!controller.signal.aborted && requestId === requestIdRef.current) {
+          setLiveGifs(fallbackList);
+          setHasMore(false);
+        }
       }
-    }, 250);
+    }, term ? 250 : 80);
 
     return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      controller.abort();
+      window.clearTimeout(timer);
     };
-  }, [searchQuery, currentCategoryData]);
+  }, [searchQuery, activeCategory, currentCategoryData, fallbackList]);
 
-  // Deduplicated Active GIFs strictly by URL and Tenor ID
   const displayGifs = useMemo(() => {
-    const rawList = liveGifs.length > 0 ? liveGifs : fallbackList;
-    const seenUrls = new Set<string>();
-    const seenIds = new Set<string>();
-    const unique: DisplayGif[] = [];
-
-    for (const item of rawList) {
-      if (!item.url) continue;
-      const tenorId = extractTenorGifId(item.url);
-      
-      if (!seenUrls.has(item.url) && !seenIds.has(tenorId)) {
-        seenUrls.add(item.url);
-        if (tenorId) seenIds.add(tenorId);
-        unique.push(item);
-      }
-    }
-    return unique;
+    const source = liveGifs.length ? liveGifs : fallbackList;
+    const urls = new Set<string>();
+    const ids = new Set<string>();
+    return source.filter((gif) => {
+      if (!gif?.url || urls.has(gif.url)) return false;
+      const id = extractTenorGifId(gif.url);
+      if (id && ids.has(id)) return false;
+      urls.add(gif.url);
+      if (id) ids.add(id);
+      return true;
+    });
   }, [liveGifs, fallbackList]);
 
-  // Infinite scroll loader
-  const [hasMore, setHasMore] = useState<boolean>(true);
-
-  // Load More Handler (Triggered on Scroll)
   const handleLoadMoreGifs = async () => {
-    if (isLoadingMore || !hasMore) return;
+    if (loadingMoreRef.current || isLoadingMore || !hasMore) return;
+    loadingMoreRef.current = true;
     setIsLoadingMore(true);
+
     try {
-      const term = searchQuery.trim() || currentCategoryData.name;
-      const forcedCat = searchQuery.trim() ? undefined : currentCategoryData.id;
-      
-      const currentList = liveGifs.length > 0 ? liveGifs : fallbackList;
-      const currentPos = nextPos || `${currentList.length}`;
-      
-      const res = await searchOnlineGifs(term, forcedCat, 20, currentPos);
+      const term = searchQuery.trim();
+      const query = term || CATEGORY_QUERY[activeCategory] || currentCategoryData.name;
+      const category = term ? undefined : currentCategoryData.id;
+      const offset = Number.parseInt(nextPos || `${liveGifs.length}`, 10);
+      const safeOffset = Number.isFinite(offset) ? Math.max(offset, liveGifs.length) : liveGifs.length;
+      const result = await searchOnlineGifs(query, category, 20, safeOffset);
+      const newItems = toDisplayGifs(result.results || [], currentCategoryData.name, `${activeCategory}-more`);
 
-      if (res.results && res.results.length > 0) {
-        const base = liveGifs.length > 0 ? liveGifs : fallbackList;
-        const existingUrls = new Set(base.map(g => g.url));
-        const existingIds = new Set(base.map(g => extractTenorGifId(g.url)));
+      const existingUrls = new Set(liveGifs.map((gif) => gif.url));
+      const existingIds = new Set(liveGifs.map((gif) => extractTenorGifId(gif.url)).filter(Boolean));
+      const uniqueNew = newItems.filter((gif) => {
+        const id = extractTenorGifId(gif.url);
+        if (existingUrls.has(gif.url) || (id && existingIds.has(id))) return false;
+        existingUrls.add(gif.url);
+        if (id) existingIds.add(id);
+        return true;
+      });
 
-        const newItems: DisplayGif[] = [];
-        for (let i = 0; i < res.results.length; i++) {
-          const r = res.results[i];
-          const gifUrl = r.media[0]?.gif?.url || r.media[0]?.tinygif?.url || r.url;
-          const tenorId = extractTenorGifId(gifUrl);
-
-          if (gifUrl && !existingUrls.has(gifUrl) && (!tenorId || !existingIds.has(tenorId))) {
-            existingUrls.add(gifUrl);
-            if (tenorId) existingIds.add(tenorId);
-            newItems.push({
-              id: `${r.id || 'extra'}-${tenorId || i}-${Date.now()}`,
-              title: r.title || `${term} #${base.length + newItems.length + 1}`,
-              url: gifUrl,
-              category: currentCategoryData.name,
-              tags: r.tags || [term],
-            });
-          }
-        }
-
-        if (newItems.length > 0) {
-          setLiveGifs((prev) => {
-            const current = prev.length > 0 ? prev : fallbackList;
-            return [...current, ...newItems];
-          });
-        }
-
-        setNextPos(res.next || `${currentList.length + res.results.length}`);
+      if (uniqueNew.length) {
+        setLiveGifs((previous) => [...previous, ...uniqueNew]);
+        setNextPos(result.next || `${safeOffset + uniqueNew.length}`);
+      } else {
+        setHasMore(false);
       }
     } catch {
-      // Ignora erro silenciosamente durante scroll automático
+      // Do not blank the existing gallery when a later page fails.
     } finally {
+      loadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-[#0e1621] text-[#f5f5f5] flex justify-center selection:bg-[#2481cc]/30">
-      {/* Loading Splash Screen */}
-      <AnimatePresence>
-        {isAppLoading && <LoadingScreen isLoading={isAppLoading} />}
-      </AnimatePresence>
+      <AnimatePresence>{isAppLoading && <LoadingScreen isLoading={isAppLoading} />}</AnimatePresence>
 
-      {/* Main App Container */}
       <div className="w-full max-w-md min-h-screen bg-[#0e1621] flex flex-col pb-8">
-        
-        {/* Top Header with Documentation Button */}
         <header className="pt-6 pb-2 px-4 flex items-center justify-between border-b border-[#1c2733]/70 mb-1">
           <div>
-            <h1 className="text-xl font-black text-white tracking-tight uppercase flex items-center gap-1.5">
-              <span>Raphael GIFs</span>
-            </h1>
-            <p className="text-[10px] text-[#8293a4] font-bold tracking-wide">
-              @raphaelsboting • Tenor Gateway
-            </p>
+            <h1 className="text-xl font-black text-white tracking-tight uppercase">Raphael GIFs</h1>
+            <p className="text-[10px] text-[#8293a4] font-bold tracking-wide">@raphaelsboting • Kaise GIF API</p>
           </div>
-
-          {/* Documentation & API Button */}
-          <button
-            onClick={() => setIsDocsOpen(true)}
-            className="py-2 px-3 rounded-xl bg-[#1c2733] hover:bg-[#2481cc] text-[#2aabee] hover:text-white transition-all text-xs font-bold flex items-center gap-1.5 border border-[#253241] shadow-sm active:scale-95 cursor-pointer"
-            title="Abrir Documentação e API"
-          >
+          <button onClick={() => setIsDocsOpen(true)} className="py-2 px-3 rounded-xl bg-[#1c2733] hover:bg-[#2481cc] text-[#2aabee] hover:text-white transition-all text-xs font-bold flex items-center gap-1.5 border border-[#253241] cursor-pointer">
             <BookOpen className="w-3.5 h-3.5" />
             <span>Documentação</span>
           </button>
         </header>
 
-        {/* Global Search Bar */}
-        <SearchBar
-          query={searchQuery}
-          onQueryChange={setSearchQuery}
-          resultCount={displayGifs.length}
-        />
+        <SearchBar query={searchQuery} onQueryChange={setSearchQuery} resultCount={displayGifs.length} />
 
-        {/* Clean Category Bar with Horizontal Scroll Only */}
         {!searchQuery.trim() && (
           <CategorySelector
             activeCategory={activeCategory}
-            onSelectCategory={(catId) => {
-              setActiveCategory(catId);
-              setLiveGifs([]);
+            onSelectCategory={(category) => {
+              if (category === activeCategory) return;
+              setActiveCategory(category);
+              setSearchQuery('');
             }}
           />
         )}
 
-        {/* GIF Gallery Grid with Real Titles & Actions (Download, Copy, Share, Code) */}
         <GifGallery
           gifs={displayGifs}
           activeCategoryName={searchQuery.trim() ? `Busca: "${searchQuery}"` : currentCategoryData.name}
@@ -305,39 +205,14 @@ export default function App() {
           hasMore={hasMore}
         />
 
-        {/* Footer with Clean Tenor Attribution */}
         <footer className="mt-10 pt-4 pb-6 text-center text-[11px] text-[#708499] px-4 space-y-2 border-t border-[#1c2733]/60">
-          <p className="font-bold text-white/80">Raphael GIF Platform • 2026</p>
-          <p className="text-[11px]">
-            Desenvolvido para Bots e Desenvolvedores. Mídias fornecidas via{' '}
-            <a 
-              href="https://tenor.com" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-[#2aabee] hover:underline font-bold inline-flex items-center gap-0.5"
-            >
-              <span>Tenor</span>
-              <ExternalLink className="w-2.5 h-2.5" />
-            </a>
-          </p>
-          <button
-            onClick={() => setIsDocsOpen(true)}
-            className="text-[10px] text-[#2481cc] hover:underline font-semibold cursor-pointer"
-          >
-            Ver Termos, Políticas & Endpoints da API
-          </button>
+          <p className="font-bold text-white/80">Kaise GIF Platform • 2026</p>
+          <p>Mídias fornecidas via <a href="https://tenor.com" target="_blank" rel="noopener noreferrer" className="text-[#2aabee] hover:underline font-bold inline-flex items-center gap-0.5">Tenor <ExternalLink className="w-2.5 h-2.5" /></a></p>
+          <button onClick={() => setIsDocsOpen(true)} className="text-[10px] text-[#2481cc] hover:underline font-semibold cursor-pointer">Ver Termos, Políticas & Endpoints da API</button>
         </footer>
-
       </div>
 
-      {/* Complete Documentation & API Modal */}
-      <DocumentationModal
-        isOpen={isDocsOpen}
-        onClose={() => setIsDocsOpen(false)}
-        onShowToast={showToast}
-      />
-
-      {/* Floating Toast Notification */}
+      <DocumentationModal isOpen={isDocsOpen} onClose={() => setIsDocsOpen(false)} onShowToast={showToast} />
       <Toast message={toastMessage} />
     </div>
   );
