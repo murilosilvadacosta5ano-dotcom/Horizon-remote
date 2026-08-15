@@ -1,201 +1,128 @@
-import { GIF_CATEGORIES } from '../src/data/categoriesData';
-
-interface TenorMediaFormat {
-  url: string;
-  dims?: [number, number];
-  duration?: number;
-  size?: number;
-}
-
-interface TenorResultItem {
+type GifRecord = {
   id: string;
   title: string;
-  content_description?: string;
-  itemurl: string;
   url: string;
-  hasaudio: boolean;
-  media: Array<{
-    gif: TenorMediaFormat;
-    tinygif?: TenorMediaFormat;
-    mp4?: { url: string };
-  }>;
   tags: string[];
-}
+};
 
-export function extractTenorGifId(url: string): string {
-  if (!url) return '';
+type CategoryRecord = {
+  id: string;
+  name: string;
+  description: string;
+  gifs: GifRecord[];
+};
 
-  const idMatch = url.match(/\/([a-zA-Z0-9_-]+)AAAA[a-zA-Z0-9_]/i);
-  if (idMatch?.[1]) {
-    return idMatch[1].replace(/^m\//, '').replace(/^m_/, '');
-  }
+type ApiResult = GifRecord & {
+  itemurl: string;
+  source: {
+    provider: string;
+    url: string;
+  };
+};
 
-  const parts = url.split('/');
-  const last = parts[parts.length - 1] || '';
-  return last.split('.')[0] || url;
-}
+const ALLOWED_CATEGORIES = new Set([
+  'geral',
+  'memes',
+  'jogos',
+  'animes',
+  'desenhos',
+  'reacoes',
+  'filmes',
+  'series',
+]);
 
-export function generateTenorSlug(query: string): string {
-  const clean = query
-    .trim()
-    .toLowerCase()
+const MAX_LIMIT = 50;
+const MAX_QUERY_LENGTH = 100;
+
+function normalize(value: string): string {
+  return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-');
-
-  return clean.endsWith('-gifs') ? clean : `${clean || 'trending'}-gifs`;
+    .toLowerCase()
+    .trim();
 }
 
-function formatCleanTitle(rawTitle: string | undefined, query: string, url: string): string {
-  if (rawTitle && rawTitle.trim() && !rawTitle.includes('#') && rawTitle.length > 2) {
-    return rawTitle
-      .replace(/GIF/gi, '')
-      .replace(/[-_]/g, ' ')
-      .trim()
-      .split(' ')
-      .filter(Boolean)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(' ')
-      .substring(0, 50);
-  }
-
-  try {
-    const parts = url.split('/');
-    const lastPart = parts[parts.length - 1] || '';
-    const slugName = lastPart
-      .replace('.gif', '')
-      .replace(/AAAA[a-zA-Z0-9_]+/i, '')
-      .replace(/[-_]/g, ' ')
-      .trim();
-
-    if (slugName && slugName.length > 2 && !/^[0-9a-f]+$/i.test(slugName)) {
-      return slugName
-        .split(' ')
-        .filter(Boolean)
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-        .join(' ')
-        .substring(0, 45);
-    }
-  } catch {
-    // Fallback abaixo.
-  }
-
-  return query
-    .split(' ')
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ')
-    .substring(0, 45) || 'GIF';
+function safeInteger(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed, min), max);
 }
 
-function extractGifsFromTenorHtml(
-  html: string,
+function scoreGif(gif: GifRecord, query: string): number {
+  const q = normalize(query);
+  if (!q || q === 'geral' || q === 'trending') return 1;
+
+  const title = normalize(gif.title);
+  const tags = gif.tags.map(normalize);
+  let score = 0;
+
+  if (title === q) score += 100;
+  if (title.includes(q)) score += 50;
+
+  for (const tag of tags) {
+    if (tag === q) score += 80;
+    else if (tag.includes(q) || q.includes(tag)) score += 20;
+  }
+
+  const words = q.split(/\s+/).filter(Boolean);
+  for (const word of words) {
+    if (title.includes(word)) score += 10;
+    if (tags.some((tag) => tag.includes(word))) score += 8;
+  }
+
+  return score;
+}
+
+async function loadCatalog(): Promise<CategoryRecord[]> {
+  // Dynamic import keeps the Vercel function from failing during module
+  // initialization if the large catalog ever contains a bad optional import.
+  const module = await import('../src/data/categoriesData');
+  return module.GIF_CATEGORIES as CategoryRecord[];
+}
+
+async function searchCatalog(
   query: string,
   category: string,
-): TenorResultItem[] {
-  const items: TenorResultItem[] = [];
-  const seenGifIds = new Set<string>();
-
-  const mediaRegex = /https:\/\/(?:media[0-9]*|c)\.tenor\.com\/[a-zA-Z0-9_\-\/]+(?:\/)?(?:[a-zA-Z0-9_\-]+)?\.gif/gi;
-  const matches = html.match(mediaRegex) || [];
-
-  for (const rawUrl of matches) {
-    const cleanUrl = rawUrl
-      .replace(/\\u002F/g, '/')
-      .replace(/\\/g, '');
-
-    if (
-      cleanUrl.includes('badge') ||
-      cleanUrl.includes('logo') ||
-      cleanUrl.includes('icon') ||
-      cleanUrl.includes('avatar')
-    ) {
-      continue;
-    }
-
-    const gifId = extractTenorGifId(cleanUrl);
-    if (!gifId || seenGifIds.has(gifId)) continue;
-
-    seenGifIds.add(gifId);
-
-    const title = formatCleanTitle(undefined, query, cleanUrl);
-
-    items.push({
-      id: `tenor-${gifId}`,
-      title,
-      content_description: title,
-      itemurl: `https://tenor.com/search/${encodeURIComponent(query)}`,
-      url: cleanUrl,
-      hasaudio: false,
-      media: [
-        {
-          gif: {
-            url: cleanUrl,
-            dims: [498, 278],
-            duration: 0,
-            size: 0,
-          },
-          tinygif: {
-            url: cleanUrl,
-            dims: [220, 122],
-            duration: 0,
-            size: 0,
-          },
-        },
-      ],
-      tags: [query, category],
-    });
-
-    if (items.length >= 50) break;
-  }
-
-  return items;
-}
-
-function getFallbackResults(
-  category: string,
-  query: string,
   limit: number,
   offset: number,
-  sourceUrl: string,
-): TenorResultItem[] {
-  const categoryObject =
-    GIF_CATEGORIES.find((c) => c.id === category) || GIF_CATEGORIES[0];
+): Promise<ApiResult[]> {
+  const categories = await loadCatalog();
+  const selected = category === 'geral'
+    ? categories
+    : categories.filter((item) => item.id === category);
 
-  const gifs = categoryObject?.gifs || [];
-  if (!gifs.length) return [];
+  const pool = selected.flatMap((item) => item.gifs || []);
+  const unique = new Map<string, GifRecord>();
 
-  const start = offset % gifs.length;
-  const ordered = [
-    ...gifs.slice(start),
-    ...gifs.slice(0, start),
-  ];
+  for (const gif of pool) {
+    if (gif?.url && !unique.has(gif.url)) unique.set(gif.url, gif);
+  }
 
-  return ordered.slice(0, limit).map((gif, index) => ({
-    id: `local-${gif.id}-${offset}-${index}`,
-    title: gif.title,
-    content_description: gif.title,
-    itemurl: sourceUrl,
-    url: gif.url,
-    hasaudio: false,
-    media: [
-      {
-        gif: {
-          url: gif.url,
-          dims: [498, 278],
-          duration: 0,
-          size: 0,
-        },
-        tinygif: {
-          url: gif.url,
-          dims: [220, 122],
-          duration: 0,
-          size: 0,
-        },
-      },
-    ],
-    tags: gif.tags,
+  const all = Array.from(unique.values());
+  const q = normalize(query);
+
+  all.sort((a, b) => scoreGif(b, q) - scoreGif(a, q));
+
+  // If the requested term has no exact catalog match, use the selected
+  // category as a useful fallback rather than returning an empty API.
+  const matching = q && q !== 'geral'
+    ? all.filter((gif) => scoreGif(gif, q) > 0)
+    : all;
+
+  const sourceList = matching.length ? matching : all;
+  const page = sourceList.slice(offset, offset + limit);
+
+  return page.map((gif) => ({
+    ...gif,
+    itemurl: gif.url.includes('tenor.com')
+      ? gif.url
+      : 'https://www.kaise.space/',
+    source: {
+      provider: gif.url.includes('tenor.com') ? 'tenor' : 'kaise-local',
+      url: gif.url.includes('tenor.com')
+        ? gif.url
+        : 'https://www.kaise.space/',
+    },
   }));
 }
 
@@ -204,6 +131,7 @@ export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
   res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+  res.setHeader('X-Powered-By', '');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -216,127 +144,59 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  const rawQuery = String(
-    req.query?.search || req.query?.q || 'geral',
-  ).trim().slice(0, 100) || 'geral';
-
-  const category = String(
-    req.query?.category || 'geral',
-  ).trim().toLowerCase();
-
-  const limit = Math.min(
-    Math.max(parseInt(String(req.query?.limit || '20'), 10) || 20, 1),
-    50,
-  );
-
-  const pageOffset = Math.max(
-    parseInt(String(req.query?.pos || '0'), 10) || 0,
-    0,
-  );
-
-  const slug = generateTenorSlug(rawQuery);
-  const tenorSearchWebUrl = `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`;
-
-  let extractedItems: TenorResultItem[] = [];
-
-  // Keep the live provider request short. A Vercel Function must not wait
-  // through several long provider attempts before returning the fallback.
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2200);
+    const rawQuery = String(
+      req.query?.search || req.query?.q || 'geral',
+    ).trim().slice(0, MAX_QUERY_LENGTH) || 'geral';
 
-    try {
-      const response = await fetch(tenorSearchWebUrl, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36',
-          Accept: 'text/html,application/xhtml+xml',
-          'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-        },
-      });
+    let category = normalize(String(req.query?.category || 'geral'));
+    if (!ALLOWED_CATEGORIES.has(category)) category = 'geral';
 
-      if (response.ok) {
-        const html = await response.text();
-        extractedItems = extractGifsFromTenorHtml(
-          html,
-          rawQuery,
-          category,
-        );
-      }
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  } catch {
-    // Provider unavailable or timed out. The local catalog remains available.
-  }
+    const limit = safeInteger(req.query?.limit, 20, 1, MAX_LIMIT);
+    const offset = safeInteger(req.query?.pos ?? req.query?.offset, 0, 0, 10000);
 
-  // Strict ID/URL deduplication.
-  const seenIds = new Set<string>();
-  const filteredItems = extractedItems.filter((item) => {
-    const url = item.media[0]?.gif?.url || item.url;
-    const id = extractTenorGifId(url);
-
-    if (!id || seenIds.has(id)) return false;
-    seenIds.add(id);
-    return true;
-  });
-
-  let finalResults = filteredItems.slice(
-    pageOffset,
-    pageOffset + limit,
-  );
-
-  let sourceType: 'tenor' | 'kaise-local' = 'tenor';
-
-  if (!finalResults.length) {
-    sourceType = 'kaise-local';
-    finalResults = getFallbackResults(
-      category,
+    const results = await searchCatalog(
       rawQuery,
+      category,
       limit,
-      pageOffset,
-      'https://www.kaise.space/',
+      offset,
     );
-  }
 
-  const allGifUrls = finalResults
-    .map((result) => result.media[0]?.gif?.url || result.url)
-    .filter(Boolean);
+    if (!results.length) {
+      return res.status(404).json({
+        success: false,
+        error: 'NO_GIFS_FOUND',
+        query: rawQuery,
+        category,
+        results: [],
+      });
+    }
 
-  if (!allGifUrls.length) {
-    return res.status(404).json({
-      success: false,
-      error: 'NO_GIFS_FOUND',
+    const allGifs = results.map((gif) => gif.url);
+    const selectedGif = allGifs[Math.floor(Math.random() * allGifs.length)];
+
+    return res.status(200).json({
+      status: 200,
+      success: true,
       query: rawQuery,
       category,
+      gif_url: selectedGif,
+      all_gifs: allGifs,
+      results,
+      total_found: results.length,
+      next: String(offset + results.length),
+      search_url: `https://www.kaise.space/?search=${encodeURIComponent(rawQuery)}`,
+      tenor_search_url: `https://tenor.com/search/${encodeURIComponent(rawQuery)}`,
+      source: results[0].source.provider,
+      from_cache: true,
+    });
+  } catch (error) {
+    console.error('Kaise GIF API failed:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'GIF_API_FAILED',
+      message: 'Unable to load the GIF catalog right now.',
     });
   }
-
-  const selectedGif =
-    allGifUrls[Math.floor(Math.random() * allGifUrls.length)];
-
-  const resultsWithSource = finalResults.map((result) => ({
-    ...result,
-    source: {
-      provider: result.id.startsWith('tenor-') ? 'tenor' : 'kaise-local',
-      url: result.itemurl,
-    },
-  }));
-
-  return res.status(200).json({
-    status: 200,
-    success: true,
-    query: rawQuery,
-    category,
-    gif_url: selectedGif,
-    all_gifs: allGifUrls,
-    results: resultsWithSource,
-    total_found: allGifUrls.length,
-    next: String(pageOffset + finalResults.length),
-    search_url: tenorSearchWebUrl,
-    tenor_search_url: tenorSearchWebUrl,
-    source: sourceType,
-    from_cache: false,
-  });
 }
