@@ -3,12 +3,41 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { searchOnlineGifs, getRandomGif } from "./src/services/gifSearch";
 import { GIF_CATEGORIES } from "./src/data/categoriesData";
+import { apiRateLimit } from "./src/middleware/rateLimit";
+
+const API_RATE_LIMIT = 60;
+const MAX_QUERY_LENGTH = 100;
+
+function parseLimit(value: unknown, fallback = 20): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(Math.trunc(parsed), 1), 50);
+}
+
+function parseOffset(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.min(Math.max(Math.trunc(parsed), 0), 100_000);
+}
+
+function cleanQuery(value: unknown): string {
+  return String(value || "geral")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, MAX_QUERY_LENGTH) || "geral";
+}
+
+function cleanCategory(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  return String(value).trim().toLowerCase().slice(0, 60) || undefined;
+}
 
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
 
-  app.use(express.json());
+  app.set("x-powered-by", false);
+  app.use(express.json({ limit: "100kb" }));
 
   // CORS para bots de Telegram, Discord, Python e outros clientes.
   app.use((req, res, next) => {
@@ -18,39 +47,38 @@ async function startServer() {
       "Access-Control-Allow-Headers",
       "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-api-key"
     );
+    res.header("Access-Control-Max-Age", "86400");
 
     if (req.method === "OPTIONS") {
-      return res.sendStatus(200);
+      return res.sendStatus(204);
     }
 
     next();
   });
 
-  // Health check
+  // API pública: limite por IP para evitar loops/bots acidentais derrubando o scraper.
+  app.use("/api", apiRateLimit(API_RATE_LIMIT));
+
   app.get("/api/health", (_req, res) => {
     res.json({
       status: "online",
       service: "Kaise GIF API",
       mode: "GIF Aggregation Gateway",
-      version: "1.0.0",
+      version: "1.1.0",
+      endpoints: {
+        search: "/api/v1/search?q=naruto",
+        random: "/api/v1/random",
+        categories: "/api/v1/categories",
+      },
     });
   });
 
-  // =========================================================
-  // API V1 - SEARCH
-  // GET /api/v1/search?q=naruto&limit=20&offset=0
-  // =========================================================
   app.get("/api/v1/search", async (req, res) => {
     try {
-      const query = String(req.query.q || req.query.search || "geral").trim();
-      const category = req.query.category
-        ? String(req.query.category).trim()
-        : undefined;
-      const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
-      const offset = Math.max(
-        Number(req.query.offset ?? req.query.pos ?? 0) || 0,
-        0
-      );
+      const query = cleanQuery(req.query.q || req.query.search);
+      const category = cleanCategory(req.query.category);
+      const limit = parseLimit(req.query.limit);
+      const offset = parseOffset(req.query.offset ?? req.query.pos);
 
       const result = await searchOnlineGifs(
         query,
@@ -70,24 +98,16 @@ async function startServer() {
       });
     } catch (error) {
       console.error("GIF search error:", error);
-      res.status(500).json({
+      res.status(502).json({
         success: false,
         error: "GIF_SEARCH_FAILED",
       });
     }
   });
 
-  // =========================================================
-  // API V1 - RANDOM
-  // GET /api/v1/random
-  // GET /api/v1/random?category=animes
-  // =========================================================
   app.get("/api/v1/random", async (req, res) => {
     try {
-      const category = req.query.category
-        ? String(req.query.category).trim()
-        : undefined;
-
+      const category = cleanCategory(req.query.category);
       const result = await getRandomGif(category);
 
       res.json({
@@ -96,16 +116,13 @@ async function startServer() {
       });
     } catch (error) {
       console.error("Random GIF error:", error);
-      res.status(500).json({
+      res.status(502).json({
         success: false,
         error: "RANDOM_GIF_FAILED",
       });
     }
   });
 
-  // =========================================================
-  // API V1 - CATEGORIES
-  // =========================================================
   app.get("/api/v1/categories", (_req, res) => {
     res.json({
       success: true,
@@ -121,7 +138,7 @@ async function startServer() {
 
   app.get("/api/v1/categories/:category", async (req, res) => {
     try {
-      const category = String(req.params.category).trim();
+      const category = cleanCategory(req.params.category) || "";
       const categoryData = GIF_CATEGORIES.find((item) => item.id === category);
 
       if (!categoryData) {
@@ -131,9 +148,8 @@ async function startServer() {
         });
       }
 
-      const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
-      const offset = Math.max(Number(req.query.offset) || 0, 0);
-
+      const limit = parseLimit(req.query.limit);
+      const offset = parseOffset(req.query.offset ?? req.query.pos);
       const result = await searchOnlineGifs(
         category,
         category,
@@ -155,36 +171,26 @@ async function startServer() {
       });
     } catch (error) {
       console.error("Category GIF error:", error);
-      res.status(500).json({
+      res.status(502).json({
         success: false,
         error: "CATEGORY_GIF_SEARCH_FAILED",
       });
     }
   });
 
-  // =========================================================
-  // LEGACY API - mantida para não quebrar seus bots atuais
-  // GET /api/gifs?search=naruto&category=animes&limit=20&pos=0
-  // =========================================================
+  // Compatibilidade com integrações antigas.
   app.get("/api/gifs", async (req, res) => {
     try {
-      const searchQuery = String(
-        req.query.search || req.query.q || "geral"
-      ).trim();
-      const forcedCategory = req.query.category
-        ? String(req.query.category).trim()
-        : undefined;
-      const limit = Math.min(
-        Math.max(parseInt(String(req.query.limit || "20"), 10) || 20, 1),
-        50
-      );
-      const pos = String(req.query.pos ?? req.query.next ?? "0");
+      const searchQuery = cleanQuery(req.query.search || req.query.q);
+      const forcedCategory = cleanCategory(req.query.category);
+      const limit = parseLimit(req.query.limit);
+      const pos = parseOffset(req.query.pos ?? req.query.next);
 
       const result = await searchOnlineGifs(
         searchQuery,
         forcedCategory,
         limit,
-        pos
+        String(pos)
       );
 
       res.json({
@@ -207,32 +213,26 @@ async function startServer() {
       });
     } catch (error) {
       console.error("Legacy GIF API error:", error);
-      res.status(500).json({
-        status: 500,
+      res.status(502).json({
+        status: 502,
         success: false,
         error: "GIF_SEARCH_FAILED",
       });
     }
   });
 
-  // POST compatível com bots/backend antigos.
   app.post("/api/gifs/search", async (req, res) => {
     try {
-      const search = String(req.body.search || req.body.q || "geral").trim();
-      const forcedCategory = req.body.category
-        ? String(req.body.category).trim()
-        : undefined;
-      const limit = Math.min(
-        Math.max(parseInt(String(req.body.limit || "20"), 10) || 20, 1),
-        50
-      );
-      const pos = String(req.body.pos ?? req.body.next ?? "0");
+      const search = cleanQuery(req.body?.search || req.body?.q);
+      const forcedCategory = cleanCategory(req.body?.category);
+      const limit = parseLimit(req.body?.limit);
+      const pos = parseOffset(req.body?.pos ?? req.body?.next);
 
       const result = await searchOnlineGifs(
         search,
         forcedCategory,
         limit,
-        pos
+        String(pos)
       );
 
       res.json({
@@ -255,15 +255,14 @@ async function startServer() {
       });
     } catch (error) {
       console.error("POST GIF API error:", error);
-      res.status(500).json({
-        status: 500,
+      res.status(502).json({
+        status: 502,
         success: false,
         error: "GIF_SEARCH_FAILED",
       });
     }
   });
 
-  // Endpoint de categorias antigo.
   app.get("/api/categories", (_req, res) => {
     res.json({
       categories: GIF_CATEGORIES.map((category) => ({
@@ -276,7 +275,6 @@ async function startServer() {
     });
   });
 
-  // Vite middleware
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
