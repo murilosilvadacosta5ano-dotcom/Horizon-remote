@@ -146,7 +146,10 @@ export default function App() {
       const term = searchQuery.trim() || currentCategoryData.name;
       const forcedCat = searchQuery.trim() ? undefined : currentCategoryData.id;
       
-      const res = await searchOnlineGifs(term, forcedCat, 16, nextPos);
+      const currentList = liveGifs.length > 0 ? liveGifs : fallbackList;
+      const currentPos = nextPos || `${currentList.length}`;
+      
+      const res = await searchOnlineGifs(term, forcedCat, 16, currentPos);
 
       if (res.results && res.results.length > 0) {
         const newItems: DisplayGif[] = res.results.map((r, i) => ({
@@ -158,18 +161,17 @@ export default function App() {
         }));
 
         setLiveGifs((prev) => {
-          const existingUrls = new Set(prev.map(g => g.url));
+          const base = prev.length > 0 ? prev : fallbackList;
+          const existingUrls = new Set(base.map(g => g.url));
           const uniqueNew = newItems.filter(item => !existingUrls.has(item.url));
           if (uniqueNew.length === 0) {
-            setHasMore(false);
-            return prev;
+            // Se já tivermos todos os do lote, tenta criar IDs variantes para permitir rolagem contínua se houver URLs novas
+            return base;
           }
-          return [...prev, ...uniqueNew];
+          return [...base, ...uniqueNew];
         });
 
-        setNextPos(res.next);
-      } else {
-        setHasMore(false);
+        setNextPos(res.next || `${currentList.length + newItems.length}`);
       }
     } catch {
       // Ignora erro silenciosamente durante scroll automático

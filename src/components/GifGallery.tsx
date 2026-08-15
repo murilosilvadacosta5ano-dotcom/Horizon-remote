@@ -54,20 +54,27 @@ export const GifGallery: React.FC<GifGalleryProps> = ({
     return list;
   }, [gifs]);
 
-  // Infinite Scroll Trigger with IntersectionObserver
+  // Infinite Scroll Trigger with IntersectionObserver and Window Scroll Fallback
   useEffect(() => {
     if (!onLoadMore || !hasMore) return;
 
+    let debounceTimer: any = null;
+    const triggerLoad = () => {
+      if (isLoadingMore) return;
+      onLoadMore();
+    };
+
+    // 1. Intersection Observer
     const observer = new IntersectionObserver(
       (entries) => {
         const firstEntry = entries[0];
         if (firstEntry.isIntersecting && !isLoadingMore) {
-          onLoadMore();
+          triggerLoad();
         }
       },
       {
-        rootMargin: '400px', // Pre-fetch before user hits the exact bottom
-        threshold: 0.1,
+        rootMargin: '600px', // Pre-fetch before user hits the bottom
+        threshold: 0.05,
       }
     );
 
@@ -76,11 +83,30 @@ export const GifGallery: React.FC<GifGalleryProps> = ({
       observer.observe(currentSentinel);
     }
 
+    // 2. Window Scroll Event Listener as a bulletproof fallback
+    const handleWindowScroll = () => {
+      if (isLoadingMore || !hasMore) return;
+      const scrollY = window.scrollY || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const fullHeight = document.documentElement.scrollHeight;
+
+      if (fullHeight - (scrollY + windowHeight) < 700) {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          triggerLoad();
+        }, 100);
+      }
+    };
+
+    window.addEventListener('scroll', handleWindowScroll, { passive: true });
+
     return () => {
       if (currentSentinel) {
         observer.unobserve(currentSentinel);
       }
       observer.disconnect();
+      window.removeEventListener('scroll', handleWindowScroll);
+      if (debounceTimer) clearTimeout(debounceTimer);
     };
   }, [onLoadMore, isLoadingMore, hasMore, uniqueGifs.length]);
 

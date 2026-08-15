@@ -2,354 +2,1402 @@ import { GifCategory } from '../types';
 
 export const GIF_CATEGORIES: GifCategory[] = [
   {
-    id: 'geral',
-    name: 'Geral',
-    description: 'Trending e GIFs mais populares da internet',
-    subcategories: ['Todos'],
-    gifs: [
+    "id": "geral",
+    "name": "Geral",
+    "description": "Trending e GIFs mais populares da internet",
+    "subcategories": [
+      "Todos"
+    ],
+    "gifs": [
       {
-        id: 'geral-1',
-        title: 'Gato Dançando Animado',
-        url: 'https://media.tenor.com/2b_M4a2Q7yAAAAAC/cat-dance.gif',
-        tags: ['geral', 'gato', 'dança', 'fofo', 'popular']
+        "id": "geral-1",
+        "title": "Cat kedi",
+        "url": "https://media1.tenor.com/m/cbvieHoVQYoAAAAC/cat-kedi.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'geral-2',
-        title: 'Cachorro Esperto Sorrindo',
-        url: 'https://media.tenor.com/V71_n-e_N9cAAAAC/dog-smile.gif',
-        tags: ['geral', 'cachorro', 'sorriso', 'fofo', 'viral']
+        "id": "geral-2",
+        "title": "Cat kedi",
+        "url": "https://media.tenor.com/cbvieHoVQYoAAAAM/cat-kedi.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'geral-3',
-        title: 'Aplausos de Pé Celebrando',
-        url: 'https://media.tenor.com/9b97bW2w8WAAAAAC/clapping-applause.gif',
-        tags: ['geral', 'aplausos', 'palmas', 'parabens', 'festa']
+        "id": "geral-3",
+        "title": "Son tung tung sahur",
+        "url": "https://media.tenor.com/UDVQyWxkf5EAAAAM/son-tung-tung-sahur.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'geral-4',
-        title: 'Show de Fogos de Artifício',
-        url: 'https://media.tenor.com/Z4N3n1LwT1QAAAAC/fireworks-celebrate.gif',
-        tags: ['geral', 'fogos', 'comemorar', 'festa', 'alegria']
+        "id": "geral-4",
+        "title": "Dog awkward",
+        "url": "https://media.tenor.com/mIirbFHFViYAAAAM/dog-awkward.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'geral-5',
-        title: 'Joinha de Aprovação Positivo',
-        url: 'https://media.tenor.com/gK9J2L1oP4cAAAAC/thumbs-up-cool.gif',
-        tags: ['geral', 'joinha', 'ok', 'positivo', 'aprovado']
+        "id": "geral-5",
+        "title": "Tryan tryan meme",
+        "url": "https://media.tenor.com/V0RXqjM_nVUAAAAM/tryan-tryan-meme.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'geral-6',
-        title: 'Dancinha Comemorando Sucesso',
-        url: 'https://media.tenor.com/39bN7W9v0yEAAAAC/happy-dance.gif',
-        tags: ['geral', 'danca', 'comemoracao', 'vitoria']
+        "id": "geral-6",
+        "title": "Shoulder",
+        "url": "https://media.tenor.com/yQ9ayIA75ugAAAAM/shoulder.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "geral-7",
+        "title": "Discord",
+        "url": "https://media.tenor.com/7tJUSF03SpQAAAAM/discord.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "geral-8",
+        "title": "Smart trending",
+        "url": "https://media.tenor.com/LcsZveLfRvMAAAAM/smart-trending.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "geral-9",
+        "title": "Blue among us hot sexy doctor",
+        "url": "https://media.tenor.com/bsC21mhD5kwAAAAM/blue-among-us-hot-sexy-doctor.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "geral-10",
+        "title": "Startamilchat vadivelu no",
+        "url": "https://media.tenor.com/febuR7TWLzIAAAAM/startamilchat-vadivelu-no.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "geral-11",
+        "title": "Lanehats get lanehats trending",
+        "url": "https://media.tenor.com/XThvaCUPfp8AAAAM/lanehats-get-lanehats-trending.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "geral-12",
+        "title": "Dog indian dog on toilet",
+        "url": "https://media.tenor.com/7_XRZZwUrCgAAAAM/dog-indian-dog-on-toilet.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "geral-13",
+        "title": "Tiktok tiktok meme",
+        "url": "https://media.tenor.com/9jOi6aDrFPgAAAAM/tiktok-tiktok-meme.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "geral-14",
+        "title": "Tiktok hugo",
+        "url": "https://media.tenor.com/LuJQPuOlO-AAAAAM/tiktok-hugo.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "geral-15",
+        "title": "Peace peace out",
+        "url": "https://media.tenor.com/kFk1F2O0v-EAAAAM/peace-peace-out.gif",
+        "tags": [
+          "geral",
+          "trending",
+          "tenor",
+          "gif"
+        ]
       }
     ]
   },
   {
-    id: 'memes',
-    name: 'Memes',
-    description: 'Memes virais, engraçados e clássicos da internet',
-    subcategories: ['Todos'],
-    gifs: [
+    "id": "memes",
+    "name": "Memes",
+    "description": "Memes virais, engraçados e clássicos da internet",
+    "subcategories": [
+      "Todos"
+    ],
+    "gifs": [
       {
-        id: 'meme-1',
-        title: 'John Travolta Confuso Pulp Fiction',
-        url: 'https://media.tenor.com/4c8M3Q7x91AAAAAC/travolta-confused.gif',
-        tags: ['meme', 'travolta', 'confuso', 'perdido', 'pulp fiction']
+        "id": "memes-1",
+        "title": "Tiktok tiktok memes",
+        "url": "https://media1.tenor.com/m/2IpkXtn0KAAAAAAC/tiktok-tiktok-memes.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'meme-2',
-        title: 'Homem Pensativo Cabeça Inteligente',
-        url: 'https://media.tenor.com/bC8w5_k7fVMAAAAC/roll-safe-think.gif',
-        tags: ['meme', 'pensando', 'esperto', 'ideia', 'cerebro']
+        "id": "memes-2",
+        "title": "Caine tadc",
+        "url": "https://media.tenor.com/VT4tm-m83fYAAAAM/caine-tadc.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'meme-3',
-        title: 'Cachorro Doge Olhando Desconfiado',
-        url: 'https://media.tenor.com/vH9Z1xW6pLkAAAAC/doge-look.gif',
-        tags: ['meme', 'doge', 'cachorro', 'shiba', 'desconfiado']
+        "id": "memes-3",
+        "title": "Ishowspeed dance",
+        "url": "https://media.tenor.com/kLfwF7LJ5-wAAAAM/ishowspeed-dance.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'meme-4',
-        title: 'Criança Comemorando com Punho de Vitória',
-        url: 'https://media.tenor.com/P4w8k2M9n1QAAAAC/success-kid-yes.gif',
-        tags: ['meme', 'vitoria', 'consegui', 'success kid', 'comemorar']
+        "id": "memes-4",
+        "title": "Super mario bros toy",
+        "url": "https://media.tenor.com/E2IsXipYZOYAAAAM/super-mario-bros-toy.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'meme-5',
-        title: 'Nazaré Confusa Fazendo Cálculos',
-        url: 'https://media.tenor.com/X4b8w1N2k6cAAAAC/nazare-confusa.gif',
-        tags: ['meme', 'nazare', 'calculos', 'matematica', 'duvida']
+        "id": "memes-5",
+        "title": "Funny memes",
+        "url": "https://media.tenor.com/slcy8zh87u0AAAAM/funny-memes.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'meme-6',
-        title: 'Rindo Alto de Gargalhada',
-        url: 'https://media.tenor.com/L1M4w7P2n8cAAAAC/laughing-meme.gif',
-        tags: ['meme', 'risada', 'engracado', 'lol', 'haha']
+        "id": "memes-6",
+        "title": "Funny memes woody",
+        "url": "https://media.tenor.com/nsQ57a43PG0AAAAM/funny-memes-woody.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "memes-7",
+        "title": "Lag memes lag memes",
+        "url": "https://media.tenor.com/jrcGZSw1k6MAAAAM/lag-memes-lag-memes.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "memes-8",
+        "title": "Rat mouse",
+        "url": "https://media.tenor.com/rvdvCpXlGRQAAAAM/rat-mouse.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "memes-9",
+        "title": "Repogame repo game",
+        "url": "https://media.tenor.com/-rNIojCE0ugAAAAM/repogame-repo-game.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "memes-10",
+        "title": "Absolute cinema cinema",
+        "url": "https://media.tenor.com/qYaKTu5EdVAAAAAM/absolute-cinema-cinema.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "memes-11",
+        "title": "Dandys world dandys world memes",
+        "url": "https://media.tenor.com/M-D_tSuOd1oAAAAM/dandys-world-dandys-world-memes.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "memes-12",
+        "title": "Xd memes",
+        "url": "https://media.tenor.com/jc6Cl1EwyvcAAAAM/xd-memes.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "memes-13",
+        "title": "Sog cat soggy",
+        "url": "https://media.tenor.com/7zZeen_jMDwAAAAM/sog-cat-soggy.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "memes-14",
+        "title": "Oi oi oi",
+        "url": "https://media.tenor.com/ZXgGbRAucn8AAAAM/oi-oi-oi.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "memes-15",
+        "title": "Sad crying",
+        "url": "https://media.tenor.com/Bi_k08IY4DkAAAAM/sad-crying.gif",
+        "tags": [
+          "memes",
+          "memes",
+          "tenor",
+          "gif"
+        ]
       }
     ]
   },
   {
-    id: 'jogos',
-    name: 'Jogos',
-    description: 'Games, Minecraft, GTA, Roblox, Mario e consoles',
-    subcategories: ['Todos'],
-    gifs: [
+    "id": "jogos",
+    "name": "Jogos",
+    "description": "Games, Minecraft, GTA, Roblox, Mario e consoles",
+    "subcategories": [
+      "Todos"
+    ],
+    "gifs": [
       {
-        id: 'jogos-1',
-        title: 'Steve e Aldeão Dançando Minecraft',
-        url: 'https://media.tenor.com/N7w1K3b8M9cAAAAC/minecraft-dance.gif',
-        tags: ['jogos', 'games', 'minecraft', 'steve', 'dança']
+        "id": "jogos-1",
+        "title": "Minecraft cat",
+        "url": "https://media1.tenor.com/m/0zKz1ByCRK8AAAAC/minecraft-cat.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'jogos-2',
-        title: 'Super Mario Pulando no Bloco',
-        url: 'https://media.tenor.com/bK9P4w7m1nQAAAAC/mario-jump-nintendo.gif',
-        tags: ['jogos', 'games', 'mario', 'nintendo', 'pulo']
+        "id": "jogos-2",
+        "title": "Minecraft cat",
+        "url": "https://media.tenor.com/0zKz1ByCRK8AAAAM/minecraft-cat.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'jogos-3',
-        title: 'CJ GTA San Andreas Andando na Rua',
-        url: 'https://media.tenor.com/H1m4W8v3n7cAAAAC/gta-sa-cj.gif',
-        tags: ['jogos', 'games', 'gta', 'san andreas', 'cj', 'rockstar']
+        "id": "jogos-3",
+        "title": "Cat cake",
+        "url": "https://media.tenor.com/_PcUr-D7dU8AAAAM/cat-cake.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'jogos-4',
-        title: 'Sonic Correndo em Alta Velocidade',
-        url: 'https://media.tenor.com/V2m7N9w1b4cAAAAC/sonic-running-fast.gif',
-        tags: ['jogos', 'games', 'sonic', 'sega', 'correndo']
+        "id": "jogos-4",
+        "title": "Flight steve flight",
+        "url": "https://media.tenor.com/vqTW_q3nXSIAAAAM/flight-steve-flight.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'jogos-5',
-        title: 'Roblox Personagem Fazendo Emote',
-        url: 'https://media.tenor.com/C3m8W1b9n4cAAAAC/roblox-dance-emote.gif',
-        tags: ['jogos', 'games', 'roblox', 'emote', 'danca']
+        "id": "jogos-5",
+        "title": "Minecraft cat meme cat meme",
+        "url": "https://media.tenor.com/tIor4WDRRE8AAAAM/minecraft-cat-meme-cat-meme.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'jogos-6',
-        title: 'Pikachu Lançando Choque do Trovão',
-        url: 'https://media.tenor.com/K8w3M1v7n4cAAAAC/pikachu-thunderbolt-pokemon.gif',
-        tags: ['jogos', 'games', 'pokemon', 'pikachu', 'raio']
+        "id": "jogos-6",
+        "title": "Swordcat",
+        "url": "https://media.tenor.com/pu4Y9EVRRRoAAAAM/swordcat.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "jogos-7",
+        "title": "Meme",
+        "url": "https://media.tenor.com/BCmQnZGWwO4AAAAM/meme.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "jogos-8",
+        "title": "Fat herobine",
+        "url": "https://media.tenor.com/l8pdLFgsLSMAAAAM/fat-herobine.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "jogos-9",
+        "title": "Minecrap",
+        "url": "https://media.tenor.com/5A_TIvjGinYAAAAM/minecrap.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "jogos-10",
+        "title": "Minecraft bed",
+        "url": "https://media.tenor.com/z4eyR7hhEg8AAAAM/minecraft-bed.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "jogos-11",
+        "title": "Cat minecraft",
+        "url": "https://media.tenor.com/ZYdYQP14TcgAAAAM/cat-minecraft.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "jogos-12",
+        "title": "Minecraft",
+        "url": "https://media.tenor.com/Plbi9zuA910AAAAM/minecraft.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "jogos-13",
+        "title": "Steve minecraft minecraft steve sad",
+        "url": "https://media.tenor.com/aYNgmWkXrPsAAAAM/steve-minecraft-minecraft-steve-sad.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "jogos-14",
+        "title": "Chick minecraft",
+        "url": "https://media.tenor.com/tm64ZqZFreYAAAAM/chick-minecraft.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "jogos-15",
+        "title": "Minecraft villager villager",
+        "url": "https://media.tenor.com/akPKxDYOkZIAAAAM/minecraft-villager-villager.gif",
+        "tags": [
+          "jogos",
+          "minecraft",
+          "tenor",
+          "gif"
+        ]
       }
     ]
   },
   {
-    id: 'animes',
-    name: 'Animes',
-    description: 'Animes, mangás, cenas épicas e reações clássicas',
-    subcategories: ['Todos'],
-    gifs: [
+    "id": "animes",
+    "name": "Animes",
+    "description": "Animes, mangás, cenas épicas e reações clássicas",
+    "subcategories": [
+      "Todos"
+    ],
+    "gifs": [
       {
-        id: 'anime-1',
-        title: 'Naruto Correndo com Determinação',
-        url: 'https://media.tenor.com/uR2sXlTfW-4AAAAC/naruto-run.gif',
-        tags: ['animes', 'anime', 'naruto', 'ninja', 'shippuden']
+        "id": "animes-1",
+        "title": "Naruto",
+        "url": "https://media1.tenor.com/m/mCiM7CmGGI4AAAAC/naruto.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'anime-2',
-        title: 'Goku Transformando em Super Saiyajin',
-        url: 'https://media.tenor.com/N1tQxT4w5-UAAAAC/goku-super-saiyan.gif',
-        tags: ['animes', 'anime', 'dragon ball', 'goku', 'saiyajin']
+        "id": "animes-2",
+        "title": "Naruto",
+        "url": "https://media.tenor.com/mCiM7CmGGI4AAAAM/naruto.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'anime-3',
-        title: 'Abraço Carinhoso de Anime',
-        url: 'https://media.tenor.com/kCZycPBFHGwAAAAC/hug-anime.gif',
-        tags: ['animes', 'anime', 'abraco', 'hug', 'fofo', 'amor']
+        "id": "animes-3",
+        "title": "Naruto naruto dance",
+        "url": "https://media.tenor.com/yQTzA3S-UxYAAAAM/naruto-naruto-dance.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'anime-4',
-        title: 'Luffy Sorrindo Feliz One Piece',
-        url: 'https://media.tenor.com/9wVzTqC5sB4AAAAC/luffy-smile.gif',
-        tags: ['animes', 'anime', 'one piece', 'luffy', 'sorriso']
+        "id": "animes-4",
+        "title": "Naruto naruto uzumaki",
+        "url": "https://media.tenor.com/_Irt0hFsEPkAAAAM/naruto-naruto-uzumaki.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'anime-5',
-        title: 'Luta Épica com Espadas Anime',
-        url: 'https://media.tenor.com/Ws6Dm1ZW_vMAAAAC/anime-sword-fight.gif',
-        tags: ['animes', 'anime', 'luta', 'espada', 'combate']
+        "id": "animes-5",
+        "title": "Naruto ninja",
+        "url": "https://media.tenor.com/rYGY7eSdHToAAAAM/naruto-ninja.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'anime-6',
-        title: 'Cafuné Fofo na Cabeça Anime',
-        url: 'https://media.tenor.com/Y7x9kUqW12IAAAAC/headpat-anime.gif',
-        tags: ['animes', 'anime', 'cafune', 'headpat', 'fofo']
+        "id": "animes-6",
+        "title": "Naruto crying",
+        "url": "https://media.tenor.com/0IeveptJaiQAAAAM/naruto-crying.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "animes-7",
+        "title": "Naruto angry angry naruto",
+        "url": "https://media.tenor.com/0y4l8sfpsTYAAAAM/naruto-angry-angry-naruto.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "animes-8",
+        "title": "Itachi itachi uchiha",
+        "url": "https://media.tenor.com/AN2ZpYraZcoAAAAM/itachi-itachi-uchiha.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "animes-9",
+        "title": "Sasuke naruto",
+        "url": "https://media.tenor.com/cOMJiXPpt7QAAAAM/sasuke-naruto.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "animes-10",
+        "title": "Believe believe it",
+        "url": "https://media.tenor.com/zyk_BcX0gIUAAAAM/believe-believe-it.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "animes-11",
+        "title": "Calesasu sasuke",
+        "url": "https://media.tenor.com/q2QBnOTVdN0AAAAM/calesasu-sasuke.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "animes-12",
+        "title": "Naruto sasuke",
+        "url": "https://media.tenor.com/2jqw4OZJl4sAAAAM/naruto-sasuke.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "animes-13",
+        "title": "Naruto de kkat",
+        "url": "https://media.tenor.com/gWDveECED1oAAAAM/naruto-de-kkat.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "animes-14",
+        "title": "I miss you too lol",
+        "url": "https://media.tenor.com/l0-Uo60Uk3sAAAAM/i-miss-you-too-lol.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "animes-15",
+        "title": "Naruto",
+        "url": "https://media.tenor.com/7GyHsInT8uoAAAAM/naruto.gif",
+        "tags": [
+          "animes",
+          "naruto",
+          "tenor",
+          "gif"
+        ]
       }
     ]
   },
   {
-    id: 'desenhos',
-    name: 'Desenhos',
-    description: 'Cartoons clássicos, Bob Esponja, Tom & Jerry e Disney',
-    subcategories: ['Todos'],
-    gifs: [
+    "id": "desenhos",
+    "name": "Desenhos",
+    "description": "Cartoons clássicos, Bob Esponja, Tom & Jerry e Disney",
+    "subcategories": [
+      "Todos"
+    ],
+    "gifs": [
       {
-        id: 'desenho-1',
-        title: 'Bob Esponja Fazendo Mágica com Arco-Íris',
-        url: 'https://media.tenor.com/D4n8W1b9m3cAAAAC/spongebob-imagination.gif',
-        tags: ['desenhos', 'cartoons', 'bob esponja', 'imaginacao', 'arco iris']
+        "id": "desenhos-1",
+        "title": "Detective",
+        "url": "https://media1.tenor.com/m/FlNf1oY95AYAAAAC/detective.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'desenho-2',
-        title: 'Tom e Jerry Perseguição Engraçada',
-        url: 'https://media.tenor.com/V9m1K3w8n4cAAAAC/tom-and-jerry-chase.gif',
-        tags: ['desenhos', 'cartoons', 'tom e jerry', 'correndo', 'classico']
+        "id": "desenhos-2",
+        "title": "Detective",
+        "url": "https://media.tenor.com/FlNf1oY95AYAAAAM/detective.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'desenho-3',
-        title: 'Pernalonga Mastigando Cenoura O Que Há Velhinho',
-        url: 'https://media.tenor.com/B7w1N4m8k3cAAAAC/bugs-bunny-carrot.gif',
-        tags: ['desenhos', 'cartoons', 'looney tunes', 'pernalonga', 'cenoura']
+        "id": "desenhos-3",
+        "title": "Ight bet",
+        "url": "https://media.tenor.com/NqnzaKLw_jsAAAAM/ight-bet.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'desenho-4',
-        title: 'Patrick Estrela Dançando Feliz',
-        url: 'https://media.tenor.com/M2w8N1k7b4cAAAAC/patrick-star-dance.gif',
-        tags: ['desenhos', 'cartoons', 'patrick', 'bob esponja', 'danca']
+        "id": "desenhos-4",
+        "title": "Desenhos GIF 4",
+        "url": "https://media.tenor.com/36l-ZPOtTUIAAAAM/eje.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'desenho-5',
-        title: 'Pica-Pau Rindo com Risada Clássica',
-        url: 'https://media.tenor.com/H8m3K1w9n4cAAAAC/woody-woodpecker-laugh.gif',
-        tags: ['desenhos', 'cartoons', 'pica pau', 'risada', 'nostalgia']
+        "id": "desenhos-5",
+        "title": "Spongebob spongebob meme",
+        "url": "https://media.tenor.com/TfHNb0N6m8EAAAAM/spongebob-spongebob-meme.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'desenho-6',
-        title: 'Scooby-Doo e Salsicha com Medo Tremer',
-        url: 'https://media.tenor.com/P1m7W8b4n3cAAAAC/scooby-doo-scared.gif',
-        tags: ['desenhos', 'cartoons', 'scooby doo', 'salsicha', 'medo']
+        "id": "desenhos-6",
+        "title": "Spongebob meme coffee",
+        "url": "https://media.tenor.com/BNp7zFS_sB4AAAAM/spongebob-meme-coffee.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "desenhos-7",
+        "title": "Spongebob spongebob meme",
+        "url": "https://media.tenor.com/ZJDVVffIueQAAAAM/spongebob-spongebob-meme.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "desenhos-8",
+        "title": "Spongebob",
+        "url": "https://media.tenor.com/-dIUayC6MjEAAAAM/spongebob.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "desenhos-9",
+        "title": "Spongebob meme",
+        "url": "https://media.tenor.com/DyHyGpmXv-EAAAAM/spongebob-meme.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "desenhos-10",
+        "title": "Spongebob spongebob meme",
+        "url": "https://media.tenor.com/WLeCMaEwOzoAAAAM/spongebob-spongebob-meme.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "desenhos-11",
+        "title": "Spongebob spongebob squarepants",
+        "url": "https://media.tenor.com/CgUsa4JJtrkAAAAM/spongebob-spongebob-squarepants.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "desenhos-12",
+        "title": "Spongebob meme put it in",
+        "url": "https://media.tenor.com/EmLDbAot1xEAAAAM/spongebob-meme-put-it-in.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "desenhos-13",
+        "title": "Spongebob spongebob meme",
+        "url": "https://media.tenor.com/i9BUKBodBRkAAAAM/spongebob-spongebob-meme.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "desenhos-14",
+        "title": "Spongebob spongebob squarepants",
+        "url": "https://media.tenor.com/g45QXSHLuREAAAAM/spongebob-spongebob-squarepants.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "desenhos-15",
+        "title": "Abubus spongebob tuff",
+        "url": "https://media.tenor.com/0HyoOh6ltPoAAAAM/abubus-spongebob-tuff.gif",
+        "tags": [
+          "desenhos",
+          "spongebob",
+          "tenor",
+          "gif"
+        ]
       }
     ]
   },
   {
-    id: 'reacoes',
-    name: 'Reações',
-    description: 'Expressões faciais, risos, palmas, surpresa e emoções',
-    subcategories: ['Todos'],
-    gifs: [
+    "id": "reacoes",
+    "name": "Reações",
+    "description": "Expressões faciais, risos, palmas, surpresa e emoções",
+    "subcategories": [
+      "Todos"
+    ],
+    "gifs": [
       {
-        id: 'reacao-1',
-        title: 'Leonardo DiCaprio Brindando Champanhe',
-        url: 'https://media.tenor.com/G3b8W1n9m4cAAAAC/dicaprio-cheers.gif',
-        tags: ['reacoes', 'reacao', 'brinde', 'champanhe', 'elegante', 'celebrar']
+        "id": "reacoes-1",
+        "title": "Flight flight reacts",
+        "url": "https://media1.tenor.com/m/uJayFIvgDo0AAAAC/flight-flight-reacts.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'reacao-2',
-        title: 'Rindo Muito Chorando de Rir',
-        url: 'https://media.tenor.com/V7w1M4b9n3cAAAAC/laughing-hard-crying.gif',
-        tags: ['reacoes', 'reacao', 'risada', 'gargalhada', 'engracado']
+        "id": "reacoes-2",
+        "title": "Shocked meme",
+        "url": "https://media.tenor.com/z3V7DJO9dfwAAAAM/shocked-meme.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'reacao-3',
-        title: 'Olhos Arregalados de Choque e Espanto',
-        url: 'https://media.tenor.com/K1m8W3b9n4cAAAAC/shocked-eyes-wide.gif',
-        tags: ['reacoes', 'reacao', 'choque', 'surpresa', 'inacreditavel']
+        "id": "reacoes-3",
+        "title": "Skull reacts skull",
+        "url": "https://media.tenor.com/jc6uJ-f5jocAAAAM/skull-reacts-skull.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'reacao-4',
-        title: 'Chorando em Prantos Tristeza',
-        url: 'https://media.tenor.com/N4w1K8b9m3cAAAAC/crying-sad-tears.gif',
-        tags: ['reacoes', 'reacao', 'choro', 'triste', 'lagrimas', 'emocionado']
+        "id": "reacoes-4",
+        "title": "Jbb withc",
+        "url": "https://media.tenor.com/M85jBN5fHnMAAAAM/jbb-withc.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'reacao-5',
-        title: 'Palmas Lentas Sarcásticas de Ironia',
-        url: 'https://media.tenor.com/H9m3W1b8n4cAAAAC/slow-clap-sarcastic.gif',
-        tags: ['reacoes', 'reacao', 'palmas', 'ironia', 'sarcastico']
+        "id": "reacoes-5",
+        "title": "My honest reaction hd my honest reaction cat ",
+        "url": "https://media.tenor.com/zgZDIkBz7e0AAAAM/my-honest-reaction-hd-my-honest-reaction-cat-hd.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'reacao-6',
-        title: 'Balançando a Cabeça em Sinal de Não',
-        url: 'https://media.tenor.com/B1m8W4b9n3cAAAAC/shaking-head-no.gif',
-        tags: ['reacoes', 'reacao', 'nao', 'negando', 'recusar']
+        "id": "reacoes-6",
+        "title": "Big eyes yippee",
+        "url": "https://media.tenor.com/5s2c6vxhbDsAAAAM/big-eyes-yippee.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "reacoes-7",
+        "title": "Flightreact shocking reaction flight reacts",
+        "url": "https://media.tenor.com/sKyQapZgyc0AAAAM/flightreact-shocking-reaction-flight-reacts.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "reacoes-8",
+        "title": "Mizu5 mizuki",
+        "url": "https://media.tenor.com/b0jaV_AyKhsAAAAM/mizu5-mizuki.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "reacoes-9",
+        "title": "My reaction to that information my reaction",
+        "url": "https://media.tenor.com/eJ-Wtl3zVgoAAAAM/my-reaction-to-that-information-my-reaction.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "reacoes-10",
+        "title": "Triste",
+        "url": "https://media.tenor.com/Y1LH3wcUcQsAAAAM/triste.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "reacoes-11",
+        "title": "Tubbo no dice",
+        "url": "https://media.tenor.com/EdlT5CBGhJsAAAAM/tubbo-no-dice.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "reacoes-12",
+        "title": "Live reaction",
+        "url": "https://media.tenor.com/HirtQjJDS08AAAAM/live-reaction.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "reacoes-13",
+        "title": "Honest reaction reaction",
+        "url": "https://media.tenor.com/J5Mi2Ix3kUUAAAAM/honest-reaction-reaction.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "reacoes-14",
+        "title": "My reaction to that information my reaction",
+        "url": "https://media.tenor.com/3cfLHuRDN3cAAAAM/my-reaction-to-that-information-my-reaction.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "reacoes-15",
+        "title": "My honest reaction",
+        "url": "https://media.tenor.com/_uxUNRgJlfgAAAAM/my-honest-reaction.gif",
+        "tags": [
+          "reacoes",
+          "reaction",
+          "tenor",
+          "gif"
+        ]
       }
     ]
   },
   {
-    id: 'filmes',
-    name: 'Filmes',
-    description: 'Cenas clássicas de cinema, Hollywood, Marvel e ficção',
-    subcategories: ['Todos'],
-    gifs: [
+    "id": "filmes",
+    "name": "Filmes",
+    "description": "Cenas clássicas de cinema, Hollywood, Marvel e ficção",
+    "subcategories": [
+      "Todos"
+    ],
+    "gifs": [
       {
-        id: 'filme-1',
-        title: 'Homem de Ferro Estalando os Dedos Vingadores',
-        url: 'https://media.tenor.com/I1m8W4b9n3cAAAAC/iron-man-snap.gif',
-        tags: ['filmes', 'cinema', 'homem de ferro', 'marvel', 'vingadores']
+        "id": "filmes-1",
+        "title": "Pop corn movie",
+        "url": "https://media1.tenor.com/m/4FVPGc4HuVEAAAAC/pop-corn-movie.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'filme-2',
-        title: 'Darth Vader Respirando Star Wars',
-        url: 'https://media.tenor.com/D1m7W8b4n3cAAAAC/darth-vader-star-wars.gif',
-        tags: ['filmes', 'cinema', 'star wars', 'darth vader', 'vilao']
+        "id": "filmes-2",
+        "title": "Pop corn movie",
+        "url": "https://media.tenor.com/4FVPGc4HuVEAAAAM/pop-corn-movie.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'filme-3',
-        title: 'Coringa Descendo a Escada Dançando',
-        url: 'https://media.tenor.com/J1m8W4b9n3cAAAAC/joker-stairs-dance.gif',
-        tags: ['filmes', 'cinema', 'coringa', 'joker', 'dança', 'dc']
+        "id": "filmes-3",
+        "title": "Movie time movie",
+        "url": "https://media.tenor.com/lxftMq3V-zIAAAAM/movie-time-movie.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'filme-4',
-        title: 'Harry Potter Lançando Feitiço com Varinha',
-        url: 'https://media.tenor.com/H1m8W4b9n3cAAAAC/harry-potter-wand-spell.gif',
-        tags: ['filmes', 'cinema', 'harry potter', 'magia', 'bruxo']
+        "id": "filmes-4",
+        "title": "Mickey mickey mouse",
+        "url": "https://media.tenor.com/h-yuhNxFZOUAAAAM/mickey-mickey-mouse.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'filme-5',
-        title: 'Matrix Neo Desviando das Balas em Câmera Lenta',
-        url: 'https://media.tenor.com/M1m8W4b9n3cAAAAC/matrix-bullet-dodge-neo.gif',
-        tags: ['filmes', 'cinema', 'matrix', 'neo', 'acao', 'ficcao']
+        "id": "filmes-5",
+        "title": "Movie bored",
+        "url": "https://media.tenor.com/S1r_YTIOtKgAAAAM/movie-bored.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'filme-6',
-        title: 'Jack Sparrow Correndo Desesperado Piratas do Caribe',
-        url: 'https://media.tenor.com/P1m8W4b9n3cAAAAC/jack-sparrow-running.gif',
-        tags: ['filmes', 'cinema', 'jack sparrow', 'piratas do caribe', 'correndo']
+        "id": "filmes-6",
+        "title": "Popcorn eating tina fey",
+        "url": "https://media.tenor.com/ERWdXcRP164AAAAM/popcorn-eating-tina-fey.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "filmes-7",
+        "title": "Movies tape",
+        "url": "https://media.tenor.com/gK65LKmuzp4AAAAM/movies-tape.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "filmes-8",
+        "title": "Tv movie",
+        "url": "https://media.tenor.com/hd-bp07FhawAAAAM/tv-movie.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "filmes-9",
+        "title": "Minions shh",
+        "url": "https://media.tenor.com/relXqYLaV98AAAAM/minions-shh.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "filmes-10",
+        "title": "Pusheen pusheen cat",
+        "url": "https://media.tenor.com/GpXrmid_s0IAAAAM/pusheen-pusheen-cat.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "filmes-11",
+        "title": "Spongebob movie",
+        "url": "https://media.tenor.com/wat7ZUaOjxQAAAAM/spongebob-movie.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "filmes-12",
+        "title": "Scary movie sasimi",
+        "url": "https://media.tenor.com/usngMBhQGU0AAAAM/scary-movie-sasimi.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "filmes-13",
+        "title": "Marlon wayans high",
+        "url": "https://media.tenor.com/0Q_E4-d1l8UAAAAM/marlon-wayans-high.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "filmes-14",
+        "title": "Ted teddy bear",
+        "url": "https://media.tenor.com/VUWwSmnL5SkAAAAM/ted-teddy-bear.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "filmes-15",
+        "title": "Despicable me minions",
+        "url": "https://media.tenor.com/zDZRlH-tT1sAAAAM/despicable-me-minions.gif",
+        "tags": [
+          "filmes",
+          "movie",
+          "tenor",
+          "gif"
+        ]
       }
     ]
   },
   {
-    id: 'series',
-    name: 'Séries',
-    description: 'The Office, Friends, Breaking Bad, Stranger Things e streaming',
-    subcategories: ['Todos'],
-    gifs: [
+    "id": "series",
+    "name": "Séries",
+    "description": "The Office, Friends, Breaking Bad, Stranger Things e streaming",
+    "subcategories": [
+      "Todos"
+    ],
+    "gifs": [
       {
-        id: 'serie-1',
-        title: 'Michael Scott Gritando No God Please No The Office',
-        url: 'https://media.tenor.com/M1m7W8b4n3cAAAAC/michael-scott-no-god-the-office.gif',
-        tags: ['series', 'tv', 'the office', 'michael scott', 'desespero']
+        "id": "series-1",
+        "title": "Office humor",
+        "url": "https://media1.tenor.com/m/khfqoC8f_ZcAAAAC/office-humor.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'serie-2',
-        title: 'Walter White Dizendo Youre Goddamn Right Breaking Bad',
-        url: 'https://media.tenor.com/W1m8W4b9n3cAAAAC/walter-white-breaking-bad.gif',
-        tags: ['series', 'tv', 'breaking bad', 'walter white', 'heisenberg']
+        "id": "series-2",
+        "title": "Office humor",
+        "url": "https://media.tenor.com/khfqoC8f_ZcAAAAM/office-humor.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'serie-3',
-        title: 'Eleven Usando Poderes Telecinéticos Stranger Things',
-        url: 'https://media.tenor.com/E1m8W4b9n3cAAAAC/eleven-stranger-things-powers.gif',
-        tags: ['series', 'tv', 'stranger things', 'eleven', 'poderes']
+        "id": "series-3",
+        "title": "Michael scott the office",
+        "url": "https://media.tenor.com/gH8YEHtt0akAAAAM/michael-scott-the-office.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'serie-4',
-        title: 'Joey Tribbiani Dizendo How You Doin Friends',
-        url: 'https://media.tenor.com/F1m8W4b9n3cAAAAC/joey-how-you-doin-friends.gif',
-        tags: ['series', 'tv', 'friends', 'joey', 'cantada']
+        "id": "series-4",
+        "title": "Ugh no michael scott no",
+        "url": "https://media.tenor.com/sn57dYxN8gIAAAAM/ugh-no-michael-scott-no.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'serie-5',
-        title: 'Dwight Schrute Comemorando Vitória The Office',
-        url: 'https://media.tenor.com/D1m8W4b9n3cAAAAC/dwight-schrute-the-office-yes.gif',
-        tags: ['series', 'tv', 'the office', 'dwight', 'comemorar']
+        "id": "series-5",
+        "title": "Steve carell",
+        "url": "https://media.tenor.com/6NSF_iDwj7IAAAAM/steve-carell.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
       },
       {
-        id: 'serie-6',
-        title: 'Thomas Shelby Fumando com Olhar Sério Peaky Blinders',
-        url: 'https://media.tenor.com/T1m8W4b9n3cAAAAC/thomas-shelby-peaky-blinders.gif',
-        tags: ['series', 'tv', 'peaky blinders', 'thomas shelby', 'frio']
+        "id": "series-6",
+        "title": "The office office",
+        "url": "https://media.tenor.com/y3KQAkKCHYEAAAAM/the-office-office.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "series-7",
+        "title": "Kelly kapoor kelly",
+        "url": "https://media.tenor.com/biGNennpt54AAAAM/kelly-kapoor-kelly.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "series-8",
+        "title": "Whoopdidy scoop",
+        "url": "https://media.tenor.com/BW79x4OUJnAAAAAM/whoopdidy-scoop.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "series-9",
+        "title": "The office",
+        "url": "https://media.tenor.com/DfeEEvi3WB8AAAAM/the-office.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "series-10",
+        "title": "The office fool me once",
+        "url": "https://media.tenor.com/i0iOWT6KcPIAAAAM/the-office-fool-me-once.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "series-11",
+        "title": "Michael scott",
+        "url": "https://media.tenor.com/m3Y2UEoxidwAAAAM/michael-scott.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "series-12",
+        "title": "The office i am dead inside",
+        "url": "https://media.tenor.com/0x_AR33pl8UAAAAM/the-office-i-am-dead-inside.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "series-13",
+        "title": "The office clap two thumbs up",
+        "url": "https://media.tenor.com/iql6IbdiXRgAAAAM/the-office-clap-two-thumbs-up.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "series-14",
+        "title": "The office",
+        "url": "https://media.tenor.com/5lE7fLiEPmIAAAAM/the-office.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
+      },
+      {
+        "id": "series-15",
+        "title": "You have never been cooler dwight",
+        "url": "https://media.tenor.com/spWHOa2lQrkAAAAM/you-have-never-been-cooler-dwight.gif",
+        "tags": [
+          "series",
+          "the office",
+          "tenor",
+          "gif"
+        ]
       }
     ]
   }
@@ -357,30 +1405,14 @@ export const GIF_CATEGORIES: GifCategory[] = [
 
 export function detectCategoryFromQuery(query: string): string {
   const q = query.toLowerCase();
-
-  if (q.includes('meme') || q.includes('engracad') || q.includes('risada') || q.includes('zueira') || q.includes('lol') || q.includes('travolta')) {
-    return 'memes';
-  }
-  if (q.includes('game') || q.includes('jogo') || q.includes('minecraft') || q.includes('mario') || q.includes('gta') || q.includes('sonic') || q.includes('roblox') || q.includes('pokemon')) {
-    return 'jogos';
-  }
-  if (q.includes('anime') || q.includes('manga') || q.includes('naruto') || q.includes('goku') || q.includes('dragon ball') || q.includes('luffy') || q.includes('one piece') || q.includes('bleach') || q.includes('otaku')) {
-    return 'animes';
-  }
-  if (q.includes('desenho') || q.includes('cartoon') || q.includes('spongebob') || q.includes('bob esponja') || q.includes('tom e jerry') || q.includes('disney') || q.includes('pernalonga')) {
-    return 'desenhos';
-  }
-  if (q.includes('reacao') || q.includes('reacao') || q.includes('triste') || q.includes('feliz') || q.includes('chorando') || q.includes('palmas') || q.includes('aplausos') || q.includes('choque') || q.includes('surpresa') || q.includes('raiva')) {
-    return 'reacoes';
-  }
-  if (q.includes('filme') || q.includes('movie') || q.includes('cinema') || q.includes('marvel') || q.includes('vingadores') || q.includes('star wars') || q.includes('coringa') || q.includes('harry potter') || q.includes('matrix')) {
-    return 'filmes';
-  }
-  if (q.includes('serie') || q.includes('series') || q.includes('the office') || q.includes('breaking bad') || q.includes('stranger things') || q.includes('friends') || q.includes('peaky blinders')) {
-    return 'series';
-  }
-
-  return 'geral';
+  if (q.includes("meme") || q.includes("engracad") || q.includes("risada") || q.includes("zueira") || q.includes("lol") || q.includes("travolta")) return "memes";
+  if (q.includes("game") || q.includes("jogo") || q.includes("minecraft") || q.includes("mario") || q.includes("gta") || q.includes("sonic") || q.includes("roblox") || q.includes("pokemon") || q.includes("zelda") || q.includes("kratos")) return "jogos";
+  if (q.includes("anime") || q.includes("manga") || q.includes("naruto") || q.includes("goku") || q.includes("dragon ball") || q.includes("luffy") || q.includes("one piece") || q.includes("bleach") || q.includes("otaku") || q.includes("demon slayer") || q.includes("saitama")) return "animes";
+  if (q.includes("desenho") || q.includes("cartoon") || q.includes("spongebob") || q.includes("bob esponja") || q.includes("tom e jerry") || q.includes("disney") || q.includes("pernalonga") || q.includes("gumball") || q.includes("scooby")) return "desenhos";
+  if (q.includes("reacao") || q.includes("reacoes") || q.includes("triste") || q.includes("feliz") || q.includes("chorando") || q.includes("palmas") || q.includes("aplausos") || q.includes("choque") || q.includes("surpresa") || q.includes("raiva") || q.includes("ironia")) return "reacoes";
+  if (q.includes("filme") || q.includes("movie") || q.includes("cinema") || q.includes("marvel") || q.includes("vingadores") || q.includes("star wars") || q.includes("coringa") || q.includes("harry potter") || q.includes("matrix") || q.includes("batman")) return "filmes";
+  if (q.includes("serie") || q.includes("series") || q.includes("the office") || q.includes("breaking bad") || q.includes("stranger things") || q.includes("friends") || q.includes("peaky blinders") || q.includes("wandinha")) return "series";
+  return "geral";
 }
 
 export function getCategoryGifs(categoryId: string): string[] {

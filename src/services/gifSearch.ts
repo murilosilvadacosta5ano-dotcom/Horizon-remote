@@ -60,22 +60,31 @@ export async function searchOnlineGifs(
       // Fallback local seguro no navegador
     }
 
-    return createLocalCategoryResult(cleanQuery, matchedCategory, tenorSearchWebUrl);
+    return createLocalCategoryResult(cleanQuery, matchedCategory, tenorSearchWebUrl, pos);
   }
 
   // Se estiver rodando no servidor Node.js (Express backend)
-  return await scrapeGifsFromSite(cleanQuery, forcedCategory, limit);
+  return await scrapeGifsFromSite(cleanQuery, forcedCategory, limit, pos);
 }
 
 function createLocalCategoryResult(
   query: string,
   category: string,
-  tenorUrl: string
+  tenorUrl: string,
+  pos?: string
 ): GifSearchResult {
   const catObj = GIF_CATEGORIES.find(c => c.id === category) || GIF_CATEGORIES[0];
+  const offset = parseInt(pos || "0", 10) || 0;
   
-  const results: TenorResultItem[] = catObj.gifs.map((g) => ({
-    id: g.id,
+  // Rotação dos GIFs locais se o usuário rolar repetidamente
+  const startIndex = offset % catObj.gifs.length;
+  const orderedGifs = [
+    ...catObj.gifs.slice(startIndex),
+    ...catObj.gifs.slice(0, startIndex)
+  ];
+
+  const results: TenorResultItem[] = orderedGifs.map((g, idx) => ({
+    id: `${g.id}-p${offset}-${idx}`,
     title: g.title,
     content_description: g.title,
     itemurl: tenorUrl,
@@ -103,6 +112,6 @@ function createLocalCategoryResult(
     totalFound: allGifs.length,
     fromCache: false,
     categoryMatched: category,
-    next: "20",
+    next: `${offset + results.length}`,
   };
 }

@@ -80,7 +80,7 @@ function extractGifsFromTenorHtml(html: string, query: string, category: string)
             seenUrls.add(gifUrl);
             const title = formatCleanTitle(item.contentDescription || item.title, query, gifUrl);
             items.push({
-              id: item.id || `scraped-${items.length}-${Math.random().toString(36).substr(2, 4)}`,
+              id: item.id || `scraped-${items.length}-${Math.random().toString(36).substring(2, 6)}`,
               title,
               content_description: title,
               itemurl: item.itemUrl || `https://tenor.com/view/${item.id || ''}`,
@@ -104,32 +104,30 @@ function extractGifsFromTenorHtml(html: string, query: string, category: string)
   }
 
   // 2. Extração via Regex no HTML
-  if (items.length < 6) {
-    const mediaRegex = /https:\/\/media[0-9]*\.tenor\.com\/[a-zA-Z0-9_\-\/]+(?:\/)?(?:[a-zA-Z0-9_\-]+)?\.gif/gi;
-    const matches = html.match(mediaRegex) || [];
+  const mediaRegex = /https:\/\/media[0-9]*\.tenor\.com\/[a-zA-Z0-9_\-\/]+(?:\/)?(?:[a-zA-Z0-9_\-]+)?\.gif/gi;
+  const matches = html.match(mediaRegex) || [];
 
-    for (const rawUrl of matches) {
-      const cleanUrl = rawUrl.replace(/\\u002F/g, '/').replace(/\\/g, '');
-      if (!cleanUrl.includes('badge') && !cleanUrl.includes('logo') && !seenUrls.has(cleanUrl)) {
-        seenUrls.add(cleanUrl);
-        const title = formatCleanTitle(undefined, query, cleanUrl);
-        items.push({
-          id: `tenor-web-${items.length}-${Math.random().toString(36).substr(2, 6)}`,
-          title,
-          content_description: title,
-          itemurl: `https://tenor.com/search/${encodeURIComponent(query)}`,
-          url: cleanUrl,
-          hasaudio: false,
-          media: [
-            {
-              gif: { url: cleanUrl, dims: [498, 278], duration: 0, size: 0 },
-              tinygif: { url: cleanUrl, dims: [220, 122], duration: 0, size: 0 },
-              mp4: { url: cleanUrl.replace('.gif', '.mp4') }
-            }
-          ],
-          tags: [query, category]
-        });
-      }
+  for (const rawUrl of matches) {
+    const cleanUrl = rawUrl.replace(/\\u002F/g, '/').replace(/\\/g, '');
+    if (!cleanUrl.includes('badge') && !cleanUrl.includes('logo') && !seenUrls.has(cleanUrl)) {
+      seenUrls.add(cleanUrl);
+      const title = formatCleanTitle(undefined, query, cleanUrl);
+      items.push({
+        id: `tenor-web-${items.length}-${Math.random().toString(36).substring(2, 6)}`,
+        title,
+        content_description: title,
+        itemurl: `https://tenor.com/search/${encodeURIComponent(query)}`,
+        url: cleanUrl,
+        hasaudio: false,
+        media: [
+          {
+            gif: { url: cleanUrl, dims: [498, 278], duration: 0, size: 0 },
+            tinygif: { url: cleanUrl, dims: [220, 122], duration: 0, size: 0 },
+            mp4: { url: cleanUrl.replace('.gif', '.mp4') }
+          }
+        ],
+        tags: [query, category]
+      });
     }
   }
 
@@ -139,11 +137,12 @@ function extractGifsFromTenorHtml(html: string, query: string, category: string)
 export async function scrapeGifsFromSite(
   rawQuery: string,
   forcedCategory?: string,
-  limit: number = 30
+  limit: number = 30,
+  pos?: string
 ): Promise<GifSearchResult> {
   const cleanQuery = (rawQuery || "geral").trim().toLowerCase();
   const matchedCategory = forcedCategory || detectCategoryFromQuery(cleanQuery);
-  const cacheKey = `scrape:${matchedCategory}:${cleanQuery}:${limit}`;
+  const cacheKey = `scrape:${matchedCategory}:${cleanQuery}:${pos || '0'}`;
 
   const slug = generateTenorSlug(cleanQuery);
   const tenorSearchWebUrl = `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`;
@@ -163,34 +162,39 @@ export async function scrapeGifsFromSite(
       totalFound: cached.gifs.length,
       fromCache: true,
       categoryMatched: cached.category,
-      next: "20"
+      next: `${(parseInt(pos || "0", 10) || 0) + cached.results.length}`
     };
   }
 
-  // 2. Termo otimizado com isolamento estrito por categoria
+  // 2. Termos de busca otimizados por categoria com variações para paginação
+  const pageOffset = parseInt(pos || "0", 10) || 0;
+  
   let targetSearchTerm = cleanQuery;
-  if (matchedCategory === 'animes' && !cleanQuery.includes('anime')) {
-    targetSearchTerm = `${cleanQuery} anime`;
-  } else if (matchedCategory === 'jogos' && !cleanQuery.includes('game') && !cleanQuery.includes('jogo')) {
-    targetSearchTerm = `${cleanQuery} game`;
-  } else if (matchedCategory === 'desenhos' && !cleanQuery.includes('cartoon') && !cleanQuery.includes('desenho')) {
-    targetSearchTerm = `${cleanQuery} cartoon`;
-  } else if (matchedCategory === 'memes' && !cleanQuery.includes('meme')) {
-    targetSearchTerm = `${cleanQuery} meme`;
-  } else if (matchedCategory === 'reacoes' && !cleanQuery.includes('reaction') && !cleanQuery.includes('reacao')) {
-    targetSearchTerm = `${cleanQuery} reaction`;
-  } else if (matchedCategory === 'filmes' && !cleanQuery.includes('movie') && !cleanQuery.includes('filme')) {
-    targetSearchTerm = `${cleanQuery} movie scene`;
-  } else if (matchedCategory === 'series' && !cleanQuery.includes('serie') && !cleanQuery.includes('series')) {
-    targetSearchTerm = `${cleanQuery} series scene`;
-  } else if (matchedCategory === 'geral' && cleanQuery === 'geral') {
-    targetSearchTerm = 'trending popular';
+  const categoryVariations: Record<string, string[]> = {
+    animes: ['anime', 'manga scenes', 'anime fighting', 'anime funny', 'otaku epic', 'anime cute'],
+    jogos: ['game', 'gaming highlights', 'minecraft gameplay', 'nintendo gaming', 'game funny', 'gamer win'],
+    desenhos: ['cartoon', 'classic animation', 'spongebob cartoon', 'looney tunes', 'disney scenes'],
+    memes: ['meme', 'funny viral', 'reaction meme', 'comedy gif', 'internet humor', 'laugh meme'],
+    reacoes: ['reaction', 'funny reaction', 'emotional reaction', 'shocked reaction', 'happy reaction'],
+    filmes: ['movie scene', 'cinema moment', 'action movie', 'classic film', 'hollywood movie'],
+    series: ['series scene', 'tv show moment', 'the office scene', 'friends series', 'breaking bad tv'],
+    geral: ['trending popular', 'viral gifs', 'celebration happy', 'epic moment', 'fun dancing']
+  };
+
+  const variations = categoryVariations[matchedCategory] || [matchedCategory];
+  const variationIndex = Math.floor(pageOffset / 12) % variations.length;
+  const currentModifier = variations[variationIndex];
+
+  if (cleanQuery === 'geral' || cleanQuery === matchedCategory) {
+    targetSearchTerm = currentModifier;
+  } else if (!cleanQuery.includes(currentModifier)) {
+    targetSearchTerm = `${cleanQuery} ${currentModifier}`;
   }
 
   const searchSlug = generateTenorSlug(targetSearchTerm);
   let extractedItems: TenorResultItem[] = [];
 
-  // 3. Extração no servidor
+  // 3. Extração online no Tenor
   try {
     const urlsToScrape = [
       `https://tenor.com/pt-BR/search/${encodeURIComponent(searchSlug)}`,
@@ -199,7 +203,7 @@ export async function scrapeGifsFromSite(
     ];
 
     for (const url of urlsToScrape) {
-      if (extractedItems.length >= 16) break;
+      if (extractedItems.length >= 24) break;
 
       try {
         const controller = new AbortController();
@@ -230,7 +234,7 @@ export async function scrapeGifsFromSite(
     // Silencia qualquer exceção
   }
 
-  // 4. Filtragem e Deduplicação estrita
+  // 4. Filtragem e Deduplicação estrita de URLs
   const uniqueUrls = new Set<string>();
   const filteredItems: TenorResultItem[] = [];
   for (const item of extractedItems) {
@@ -241,14 +245,21 @@ export async function scrapeGifsFromSite(
     }
   }
 
-  // 5. Fallback isolado e estrito por categoria (nunca mistura)
+  // 5. Fallback estruturado com o repositório de categorias
   let finalResults = filteredItems.slice(0, limit);
   let allGifUrls = finalResults.map(r => r.media[0]?.gif?.url || r.url);
 
   if (finalResults.length === 0) {
     const catObj = GIF_CATEGORIES.find(c => c.id === matchedCategory) || GIF_CATEGORIES[0];
-    finalResults = catObj.gifs.map((g) => ({
-      id: g.id,
+    const startIndex = pageOffset % catObj.gifs.length;
+    // Rotação de GIFs da categoria para nunca faltar ao rolar
+    const sliceGifs = [
+      ...catObj.gifs.slice(startIndex),
+      ...catObj.gifs.slice(0, startIndex)
+    ];
+
+    finalResults = sliceGifs.map((g, idx) => ({
+      id: `${g.id}-p${pageOffset}-${idx}`,
       title: g.title,
       content_description: g.title,
       itemurl: tenorSearchWebUrl,
@@ -274,6 +285,7 @@ export async function scrapeGifsFromSite(
 
   const selectedIdx = Math.floor(Math.random() * allGifUrls.length);
   const selectedGif = allGifUrls[selectedIdx] || allGifUrls[0];
+  const nextNumber = pageOffset + finalResults.length;
 
   SCRAPE_CACHE.set(cacheKey, {
     gifs: allGifUrls,
@@ -293,6 +305,6 @@ export async function scrapeGifsFromSite(
     totalFound: allGifUrls.length,
     fromCache: false,
     categoryMatched: matchedCategory,
-    next: "20"
+    next: nextNumber.toString()
   };
 }
