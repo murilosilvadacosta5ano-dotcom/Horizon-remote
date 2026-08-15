@@ -13,8 +13,9 @@ import { BookOpen, ExternalLink } from 'lucide-react';
 
 const CATEGORY_QUERY: Record<string, string> = {
   geral: 'trending gifs',
-  animes: 'anime',
+  memes: 'meme',
   jogos: 'gaming games',
+  animes: 'anime',
   desenhos: 'cartoons animation',
   reacoes: 'reaction memes',
   filmes: 'cinema movies',
@@ -22,21 +23,23 @@ const CATEGORY_QUERY: Record<string, string> = {
 };
 
 function toDisplayGifs(results: any[], categoryName: string, fallbackTag: string): DisplayGif[] {
-  const seen = new Set<string>();
+  const seenUrls = new Set<string>();
+  const seenIds = new Set<string>();
   const output: DisplayGif[] = [];
+
   for (const [index, result] of results.entries()) {
     const url = result?.media?.[0]?.gif?.url || result?.media?.[0]?.tinygif?.url || result?.url;
-    if (!url) continue;
+    if (!url || seenUrls.has(url)) continue;
     const id = extractTenorGifId(url) || result?.id || `${fallbackTag}-${index}`;
-    if (seen.has(id) || seen.has(url)) continue;
-    seen.add(id);
-    seen.add(url);
+    if (id && seenIds.has(id)) continue;
+    seenUrls.add(url);
+    if (id) seenIds.add(id);
     output.push({
       id: result?.id || `${fallbackTag}-${id}-${index}`,
       title: result?.title || `${categoryName} #${index + 1}`,
       url,
       category: categoryName,
-      tags: result?.tags || [fallbackTag],
+      tags: Array.isArray(result?.tags) ? result.tags : [fallbackTag],
     });
   }
   return output;
@@ -52,13 +55,10 @@ export default function App() {
   const [nextPos, setNextPos] = useState<string | undefined>();
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+
   const requestIdRef = useRef(0);
   const loadingMoreRef = useRef(false);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setIsAppLoading(false), 450);
-    return () => window.clearTimeout(timer);
-  }, []);
+  const toastTimerRef = useRef<number | null>(null);
 
   const currentCategoryData = useMemo(
     () => GIF_CATEGORIES.find((category) => category.id === activeCategory) || GIF_CATEGORIES[0],
@@ -70,16 +70,18 @@ export default function App() {
     [currentCategoryData]
   );
 
-  const showToast = (text: string) => {
-    setToastMessage(text);
-    window.setTimeout(() => setToastMessage(null), 2200);
-  };
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsAppLoading(false), 350);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const term = searchQuery.trim();
     const requestId = ++requestIdRef.current;
     const controller = new AbortController();
 
+    setIsLoadingMore(false);
+    loadingMoreRef.current = false;
     setHasMore(true);
     setNextPos(undefined);
     setLiveGifs([]);
@@ -96,18 +98,19 @@ export default function App() {
         if (formatted.length) {
           setLiveGifs(formatted);
           setNextPos(result.next);
-          setHasMore(formatted.length >= 10 && Boolean(result.next));
+          setHasMore(Boolean(result.next) && formatted.length >= 10);
         } else {
           setLiveGifs(fallbackList);
+          setNextPos(undefined);
           setHasMore(false);
         }
       } catch {
-        if (!controller.signal.aborted && requestId === requestIdRef.current) {
-          setLiveGifs(fallbackList);
-          setHasMore(false);
-        }
+        if (controller.signal.aborted || requestId !== requestIdRef.current) return;
+        setLiveGifs(fallbackList);
+        setNextPos(undefined);
+        setHasMore(false);
       }
-    }, term ? 250 : 80);
+    }, term ? 250 : 60);
 
     return () => {
       controller.abort();
@@ -129,38 +132,51 @@ export default function App() {
     });
   }, [liveGifs, fallbackList]);
 
+  const showToast = (text: string) => {
+    setToastMessage(text);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToastMessage(null), 2200);
+  };
+
   const handleLoadMoreGifs = async () => {
     if (loadingMoreRef.current || isLoadingMore || !hasMore) return;
+
     loadingMoreRef.current = true;
     setIsLoadingMore(true);
 
     try {
+      const requestId = requestIdRef.current;
       const term = searchQuery.trim();
       const query = term || CATEGORY_QUERY[activeCategory] || currentCategoryData.name;
       const category = term ? undefined : currentCategoryData.id;
-      const offset = Number.parseInt(nextPos || `${liveGifs.length}`, 10);
-      const safeOffset = Number.isFinite(offset) ? Math.max(offset, liveGifs.length) : liveGifs.length;
-      const result = await searchOnlineGifs(query, category, 20, safeOffset);
-      const newItems = toDisplayGifs(result.results || [], currentCategoryData.name, `${activeCategory}-more`);
+      const parsedOffset = Number.parseInt(nextPos || '', 10);
+      const offset = Number.isFinite(parsedOffset) ? Math.max(parsedOffset, liveGifs.length) : liveGifs.length;
 
+      const result = await searchOnlineGifs(query, category, 20, offset);
+      if (requestId !== requestIdRef.current) return;
+
+      const incoming = toDisplayGifs(result.results || [], currentCategoryData.name, term || activeCategory);
       const existingUrls = new Set(liveGifs.map((gif) => gif.url));
       const existingIds = new Set(liveGifs.map((gif) => extractTenorGifId(gif.url)).filter(Boolean));
-      const uniqueNew = newItems.filter((gif) => {
+
+      const uniqueIncoming = incoming.filter((gif) => {
         const id = extractTenorGifId(gif.url);
-        if (existingUrls.has(gif.url) || (id && existingIds.has(id))) return false;
+        if (existingUrls.has(gif.url)) return false;
+        if (id && existingIds.has(id)) return false;
         existingUrls.add(gif.url);
         if (id) existingIds.add(id);
         return true;
       });
 
-      if (uniqueNew.length) {
-        setLiveGifs((previous) => [...previous, ...uniqueNew]);
-        setNextPos(result.next || `${safeOffset + uniqueNew.length}`);
-      } else {
-        setHasMore(false);
+      if (uniqueIncoming.length) {
+        setLiveGifs((previous) => [...previous, ...uniqueIncoming]);
       }
+
+      const reachedEnd = !result.next || uniqueIncoming.length === 0;
+      setNextPos(result.next);
+      setHasMore(!reachedEnd);
     } catch {
-      // Do not blank the existing gallery when a later page fails.
+      showToast('Não foi possível carregar mais GIFs agora.');
     } finally {
       loadingMoreRef.current = false;
       setIsLoadingMore(false);
@@ -174,8 +190,8 @@ export default function App() {
       <div className="w-full max-w-md min-h-screen bg-[#0e1621] flex flex-col pb-8">
         <header className="pt-6 pb-2 px-4 flex items-center justify-between border-b border-[#1c2733]/70 mb-1">
           <div>
-            <h1 className="text-xl font-black text-white tracking-tight uppercase">Raphael GIFs</h1>
-            <p className="text-[10px] text-[#8293a4] font-bold tracking-wide">@raphaelsboting • Kaise GIF API</p>
+            <h1 className="text-xl font-black text-white tracking-tight uppercase">Kaise GIFs</h1>
+            <p className="text-[10px] text-[#8293a4] font-bold tracking-wide">Kaise GIF API • Busca • Categorias</p>
           </div>
           <button onClick={() => setIsDocsOpen(true)} className="py-2 px-3 rounded-xl bg-[#1c2733] hover:bg-[#2481cc] text-[#2aabee] hover:text-white transition-all text-xs font-bold flex items-center gap-1.5 border border-[#253241] cursor-pointer">
             <BookOpen className="w-3.5 h-3.5" />
@@ -207,8 +223,17 @@ export default function App() {
 
         <footer className="mt-10 pt-4 pb-6 text-center text-[11px] text-[#708499] px-4 space-y-2 border-t border-[#1c2733]/60">
           <p className="font-bold text-white/80">Kaise GIF Platform • 2026</p>
-          <p>Mídias fornecidas via <a href="https://tenor.com" target="_blank" rel="noopener noreferrer" className="text-[#2aabee] hover:underline font-bold inline-flex items-center gap-0.5">Tenor <ExternalLink className="w-2.5 h-2.5" /></a></p>
-          <button onClick={() => setIsDocsOpen(true)} className="text-[10px] text-[#2481cc] hover:underline font-semibold cursor-pointer">Ver Termos, Políticas & Endpoints da API</button>
+          <p>
+            Resultados podem apontar para fontes externas, incluindo{' '}
+            <a href="https://tenor.com" target="_blank" rel="noopener noreferrer" className="text-[#2aabee] hover:underline font-bold inline-flex items-center gap-0.5">
+              <span>Tenor</span>
+              <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+            .
+          </p>
+          <button onClick={() => setIsDocsOpen(true)} className="text-[10px] text-[#2481cc] hover:underline font-semibold cursor-pointer">
+            Ver documentação, termos e endpoints da API
+          </button>
         </footer>
       </div>
 
