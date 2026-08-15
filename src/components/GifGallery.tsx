@@ -10,6 +10,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { extractTenorGifId } from '../services/tenorScraper';
 
 export interface DisplayGif {
   id: string;
@@ -41,13 +42,19 @@ export const GifGallery: React.FC<GifGalleryProps> = ({
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  // Strictly deduplicate GIFs by URL to prevent identical images
+  // Strictly deduplicate GIFs by URL and Tenor ID to prevent identical images
   const uniqueGifs = useMemo(() => {
-    const seen = new Set<string>();
+    const seenUrls = new Set<string>();
+    const seenIds = new Set<string>();
     const list: DisplayGif[] = [];
+
     for (const g of gifs) {
-      if (g.url && !seen.has(g.url)) {
-        seen.add(g.url);
+      if (!g.url) continue;
+      const tenorId = extractTenorGifId(g.url);
+
+      if (!seenUrls.has(g.url) && !seenIds.has(tenorId)) {
+        seenUrls.add(g.url);
+        if (tenorId) seenIds.add(tenorId);
         list.push(g);
       }
     }

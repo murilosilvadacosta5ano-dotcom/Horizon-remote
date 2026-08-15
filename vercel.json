@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/gifs",
+      "destination": "/api/gifs"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

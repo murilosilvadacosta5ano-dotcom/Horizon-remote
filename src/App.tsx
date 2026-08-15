@@ -8,6 +8,7 @@ import { DocumentationModal } from './components/DocumentationModal';
 import { LoadingScreen } from './components/LoadingScreen';
 import { GIF_CATEGORIES } from './data/categoriesData';
 import { searchOnlineGifs } from './services/gifSearch';
+import { extractTenorGifId } from './services/tenorScraper';
 import { BookOpen, ExternalLink } from 'lucide-react';
 
 export default function App() {
@@ -87,13 +88,27 @@ export default function App() {
     };
   }, [activeCategory, currentCategoryData]);
 
-  // 2. Real-Time Search with Debounce
+  // 2. Real-Time Direct Search with Debounce
   useEffect(() => {
     const term = searchQuery.trim();
-    if (!term) return;
-
+    
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (!term) {
+      // Restaura os GIFs da categoria ativa se a busca for limpa
+      const catGifs = currentCategoryData.gifs.map((g) => ({
+        id: g.id,
+        title: g.title,
+        url: g.url,
+        category: currentCategoryData.name,
+        tags: g.tags,
+      }));
+      setLiveGifs(catGifs);
+      setNextPos(undefined);
+      setHasMore(true);
+      return;
     }
 
     setHasMore(true);
@@ -101,34 +116,53 @@ export default function App() {
       try {
         const result = await searchOnlineGifs(term, undefined, 30);
         if (result.results && result.results.length > 0) {
-          const formatted: DisplayGif[] = result.results.map((r, i) => ({
-            id: r.id || `search-${i}-${Date.now()}`,
-            title: r.title || `GIF de ${term}`,
-            url: r.media[0]?.gif?.url || r.media[0]?.mediumgif?.url || r.url,
-            category: result.categoryMatched || 'Tenor',
-            tags: r.tags || [term],
-          }));
+          const seenIds = new Set<string>();
+          const formatted: DisplayGif[] = [];
+
+          for (let i = 0; i < result.results.length; i++) {
+            const r = result.results[i];
+            const gifUrl = r.media[0]?.gif?.url || r.media[0]?.tinygif?.url || r.url;
+            const gifId = extractTenorGifId(gifUrl) || r.id || `${i}`;
+            
+            if (gifUrl && !seenIds.has(gifId)) {
+              seenIds.add(gifId);
+              formatted.push({
+                id: r.id || `search-${gifId}-${i}`,
+                title: r.title || `${term} #${i + 1}`,
+                url: gifUrl,
+                category: result.categoryMatched || 'Geral',
+                tags: r.tags || [term],
+              });
+            }
+          }
+
           setLiveGifs(formatted);
           setNextPos(result.next);
         }
       } catch {
         // Ignora
       }
-    }, 300);
+    }, 250);
 
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
-  }, [searchQuery]);
+  }, [searchQuery, currentCategoryData]);
 
-  // Deduplicated Active GIFs strictly
+  // Deduplicated Active GIFs strictly by URL and Tenor ID
   const displayGifs = useMemo(() => {
     const rawList = liveGifs.length > 0 ? liveGifs : fallbackList;
-    const seen = new Set<string>();
+    const seenUrls = new Set<string>();
+    const seenIds = new Set<string>();
     const unique: DisplayGif[] = [];
+
     for (const item of rawList) {
-      if (item.url && !seen.has(item.url)) {
-        seen.add(item.url);
+      if (!item.url) continue;
+      const tenorId = extractTenorGifId(item.url);
+      
+      if (!seenUrls.has(item.url) && !seenIds.has(tenorId)) {
+        seenUrls.add(item.url);
+        if (tenorId) seenIds.add(tenorId);
         unique.push(item);
       }
     }
@@ -149,29 +183,40 @@ export default function App() {
       const currentList = liveGifs.length > 0 ? liveGifs : fallbackList;
       const currentPos = nextPos || `${currentList.length}`;
       
-      const res = await searchOnlineGifs(term, forcedCat, 16, currentPos);
+      const res = await searchOnlineGifs(term, forcedCat, 20, currentPos);
 
       if (res.results && res.results.length > 0) {
-        const newItems: DisplayGif[] = res.results.map((r, i) => ({
-          id: `${r.id || 'extra'}-${Date.now()}-${i}`,
-          title: r.title || `${term} #${i + 1}`,
-          url: r.media[0]?.gif?.url || r.media[0]?.mediumgif?.url || r.url,
-          category: currentCategoryData.name,
-          tags: r.tags || [term],
-        }));
+        const base = liveGifs.length > 0 ? liveGifs : fallbackList;
+        const existingUrls = new Set(base.map(g => g.url));
+        const existingIds = new Set(base.map(g => extractTenorGifId(g.url)));
 
-        setLiveGifs((prev) => {
-          const base = prev.length > 0 ? prev : fallbackList;
-          const existingUrls = new Set(base.map(g => g.url));
-          const uniqueNew = newItems.filter(item => !existingUrls.has(item.url));
-          if (uniqueNew.length === 0) {
-            // Se já tivermos todos os do lote, tenta criar IDs variantes para permitir rolagem contínua se houver URLs novas
-            return base;
+        const newItems: DisplayGif[] = [];
+        for (let i = 0; i < res.results.length; i++) {
+          const r = res.results[i];
+          const gifUrl = r.media[0]?.gif?.url || r.media[0]?.tinygif?.url || r.url;
+          const tenorId = extractTenorGifId(gifUrl);
+
+          if (gifUrl && !existingUrls.has(gifUrl) && (!tenorId || !existingIds.has(tenorId))) {
+            existingUrls.add(gifUrl);
+            if (tenorId) existingIds.add(tenorId);
+            newItems.push({
+              id: `${r.id || 'extra'}-${tenorId || i}-${Date.now()}`,
+              title: r.title || `${term} #${base.length + newItems.length + 1}`,
+              url: gifUrl,
+              category: currentCategoryData.name,
+              tags: r.tags || [term],
+            });
           }
-          return [...base, ...uniqueNew];
-        });
+        }
 
-        setNextPos(res.next || `${currentList.length + newItems.length}`);
+        if (newItems.length > 0) {
+          setLiveGifs((prev) => {
+            const current = prev.length > 0 ? prev : fallbackList;
+            return [...current, ...newItems];
+          });
+        }
+
+        setNextPos(res.next || `${currentList.length + res.results.length}`);
       }
     } catch {
       // Ignora erro silenciosamente durante scroll automático

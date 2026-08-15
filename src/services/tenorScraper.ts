@@ -12,7 +12,18 @@ interface ScrapedCacheEntry {
 
 const SCRAPE_CACHE = new Map<string, ScrapedCacheEntry>();
 const CACHE_TTL = 1000 * 60 * 30; // 30 minutos
-const MAX_CACHE_ENTRIES = 250;
+const MAX_CACHE_ENTRIES = 300;
+
+export function extractTenorGifId(url: string): string {
+  if (!url) return '';
+  const idMatch = url.match(/\/([a-zA-Z0-9_-]+)AAAA[a-zA-Z0-9_]/i);
+  if (idMatch && idMatch[1]) {
+    return idMatch[1].replace(/^m\//, '').replace(/^m_/, '');
+  }
+  const parts = url.split('/');
+  const last = parts[parts.length - 1] || '';
+  return last.split('.')[0] || url;
+}
 
 export function generateTenorSlug(query: string): string {
   const clean = query
@@ -26,7 +37,7 @@ export function generateTenorSlug(query: string): string {
 }
 
 function formatCleanTitle(rawTitle: string | undefined, query: string, url: string): string {
-  if (rawTitle && rawTitle.trim() && !rawTitle.includes('#') && rawTitle.length > 3) {
+  if (rawTitle && rawTitle.trim() && !rawTitle.includes('#') && rawTitle.length > 2) {
     return rawTitle
       .replace(/GIF/gi, '')
       .replace(/[-_]/g, ' ')
@@ -42,7 +53,11 @@ function formatCleanTitle(rawTitle: string | undefined, query: string, url: stri
   try {
     const parts = url.split('/');
     const lastPart = parts[parts.length - 1] || '';
-    const slugName = lastPart.replace('.gif', '').replace(/[-_]/g, ' ').trim();
+    const slugName = lastPart
+      .replace('.gif', '')
+      .replace(/AAAA[a-zA-Z0-9_]+/i, '')
+      .replace(/[-_]/g, ' ')
+      .trim();
     if (slugName && slugName.length > 2 && !/^[0-9a-f]+$/i.test(slugName)) {
       return slugName
         .split(' ')
@@ -65,55 +80,24 @@ function formatCleanTitle(rawTitle: string | undefined, query: string, url: stri
 
 function extractGifsFromTenorHtml(html: string, query: string, category: string): TenorResultItem[] {
   const items: TenorResultItem[] = [];
-  const seenUrls = new Set<string>();
+  const seenGifIds = new Set<string>();
 
-  // 1. Extração de __NEXT_DATA__
-  try {
-    const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
-    if (nextDataMatch && nextDataMatch[1]) {
-      const json = JSON.parse(nextDataMatch[1]);
-      const results = json?.props?.pageProps?.results || json?.props?.pageProps?.initialResults || [];
-      if (Array.isArray(results) && results.length > 0) {
-        for (const item of results) {
-          const gifUrl = item.mediaFormats?.gif?.url || item.media_formats?.gif?.url || item.url;
-          if (gifUrl && !seenUrls.has(gifUrl)) {
-            seenUrls.add(gifUrl);
-            const title = formatCleanTitle(item.contentDescription || item.title, query, gifUrl);
-            items.push({
-              id: item.id || `scraped-${items.length}-${Math.random().toString(36).substring(2, 6)}`,
-              title,
-              content_description: title,
-              itemurl: item.itemUrl || `https://tenor.com/view/${item.id || ''}`,
-              url: gifUrl,
-              hasaudio: Boolean(item.hasAudio),
-              media: [
-                {
-                  gif: { url: gifUrl, dims: [498, 278], duration: 0, size: 0 },
-                  tinygif: { url: item.mediaFormats?.tinygif?.url || gifUrl, dims: [220, 122] },
-                  mp4: { url: item.mediaFormats?.mp4?.url || '' }
-                }
-              ],
-              tags: item.tags || [query, category]
-            });
-          }
-        }
-      }
-    }
-  } catch {
-    // Continua
-  }
-
-  // 2. Extração via Regex no HTML
-  const mediaRegex = /https:\/\/media[0-9]*\.tenor\.com\/[a-zA-Z0-9_\-\/]+(?:\/)?(?:[a-zA-Z0-9_\-]+)?\.gif/gi;
+  // 1. Extração via Regex no HTML (pegando todas as mídias do Tenor)
+  const mediaRegex = /https:\/\/(?:media[0-9]*|c)\.tenor\.com\/[a-zA-Z0-9_\-\/]+(?:\/)?(?:[a-zA-Z0-9_\-]+)?\.gif/gi;
   const matches = html.match(mediaRegex) || [];
 
   for (const rawUrl of matches) {
     const cleanUrl = rawUrl.replace(/\\u002F/g, '/').replace(/\\/g, '');
-    if (!cleanUrl.includes('badge') && !cleanUrl.includes('logo') && !seenUrls.has(cleanUrl)) {
-      seenUrls.add(cleanUrl);
+    if (cleanUrl.includes('badge') || cleanUrl.includes('logo') || cleanUrl.includes('icon') || cleanUrl.includes('avatar')) {
+      continue;
+    }
+
+    const gifId = extractTenorGifId(cleanUrl);
+    if (!seenGifIds.has(gifId)) {
+      seenGifIds.add(gifId);
       const title = formatCleanTitle(undefined, query, cleanUrl);
       items.push({
-        id: `tenor-web-${items.length}-${Math.random().toString(36).substring(2, 6)}`,
+        id: `tenor-${gifId}`,
         title,
         content_description: title,
         itemurl: `https://tenor.com/search/${encodeURIComponent(query)}`,
@@ -140,9 +124,13 @@ export async function scrapeGifsFromSite(
   limit: number = 30,
   pos?: string
 ): Promise<GifSearchResult> {
-  const cleanQuery = (rawQuery || "geral").trim().toLowerCase();
-  const matchedCategory = forcedCategory || detectCategoryFromQuery(cleanQuery);
-  const cacheKey = `scrape:${matchedCategory}:${cleanQuery}:${pos || '0'}`;
+  const cleanQuery = (rawQuery || "geral").trim();
+  const isDirectSearch = Boolean(rawQuery && rawQuery.trim() && rawQuery.trim().toLowerCase() !== "geral");
+  
+  // Se for busca direta do usuário, NÃO forçar categoria; manter a query exata
+  const matchedCategory = forcedCategory || (isDirectSearch ? 'geral' : detectCategoryFromQuery(cleanQuery));
+  const pageOffset = parseInt(pos || "0", 10) || 0;
+  const cacheKey = `scrape:${cleanQuery.toLowerCase()}:${pageOffset}`;
 
   const slug = generateTenorSlug(cleanQuery);
   const tenorSearchWebUrl = `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`;
@@ -161,53 +149,26 @@ export async function scrapeGifsFromSite(
       tenorSearchUrl: tenorSearchWebUrl,
       totalFound: cached.gifs.length,
       fromCache: true,
-      categoryMatched: cached.category,
-      next: `${(parseInt(pos || "0", 10) || 0) + cached.results.length}`
+      categoryMatched: matchedCategory,
+      next: `${pageOffset + cached.results.length}`
     };
   }
 
-  // 2. Termos de busca otimizados por categoria com variações para paginação
-  const pageOffset = parseInt(pos || "0", 10) || 0;
-  
-  let targetSearchTerm = cleanQuery;
-  const categoryVariations: Record<string, string[]> = {
-    animes: ['anime', 'manga scenes', 'anime fighting', 'anime funny', 'otaku epic', 'anime cute'],
-    jogos: ['game', 'gaming highlights', 'minecraft gameplay', 'nintendo gaming', 'game funny', 'gamer win'],
-    desenhos: ['cartoon', 'classic animation', 'spongebob cartoon', 'looney tunes', 'disney scenes'],
-    memes: ['meme', 'funny viral', 'reaction meme', 'comedy gif', 'internet humor', 'laugh meme'],
-    reacoes: ['reaction', 'funny reaction', 'emotional reaction', 'shocked reaction', 'happy reaction'],
-    filmes: ['movie scene', 'cinema moment', 'action movie', 'classic film', 'hollywood movie'],
-    series: ['series scene', 'tv show moment', 'the office scene', 'friends series', 'breaking bad tv'],
-    geral: ['trending popular', 'viral gifs', 'celebration happy', 'epic moment', 'fun dancing']
-  };
-
-  const variations = categoryVariations[matchedCategory] || [matchedCategory];
-  const variationIndex = Math.floor(pageOffset / 12) % variations.length;
-  const currentModifier = variations[variationIndex];
-
-  if (cleanQuery === 'geral' || cleanQuery === matchedCategory) {
-    targetSearchTerm = currentModifier;
-  } else if (!cleanQuery.includes(currentModifier)) {
-    targetSearchTerm = `${cleanQuery} ${currentModifier}`;
-  }
-
-  const searchSlug = generateTenorSlug(targetSearchTerm);
   let extractedItems: TenorResultItem[] = [];
 
-  // 3. Extração online no Tenor
+  // 2. Extração online no Tenor com a query exata
   try {
     const urlsToScrape = [
-      `https://tenor.com/pt-BR/search/${encodeURIComponent(searchSlug)}`,
-      `https://tenor.com/search/${encodeURIComponent(searchSlug)}`,
-      `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`
+      `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`,
+      `https://tenor.com/search/${encodeURIComponent(slug)}`
     ];
 
     for (const url of urlsToScrape) {
-      if (extractedItems.length >= 24) break;
+      if (extractedItems.length >= 36) break;
 
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
 
         const response = await fetch(url, {
           signal: controller.signal,
@@ -234,29 +195,46 @@ export async function scrapeGifsFromSite(
     // Silencia qualquer exceção
   }
 
-  // 4. Filtragem e Deduplicação estrita de URLs
-  const uniqueUrls = new Set<string>();
+  // 3. Deduplicação estrita baseada em ID do Tenor
+  const uniqueSeenIds = new Set<string>();
   const filteredItems: TenorResultItem[] = [];
   for (const item of extractedItems) {
     const url = item.media[0]?.gif?.url || item.url;
-    if (url && !uniqueUrls.has(url)) {
-      uniqueUrls.add(url);
+    const gifId = extractTenorGifId(url);
+    if (gifId && !uniqueSeenIds.has(gifId)) {
+      uniqueSeenIds.add(gifId);
       filteredItems.push(item);
     }
   }
 
-  // 5. Fallback estruturado com o repositório de categorias
-  let finalResults = filteredItems.slice(0, limit);
+  // 4. Paginação / Fatiamento dos resultados encontrados
+  let finalResults: TenorResultItem[] = [];
+  if (filteredItems.length > 0) {
+    if (pageOffset >= filteredItems.length) {
+      // Se já rolou além do primeiro lote, entrega do início com nova rotação para nunca parar de exibir
+      const rotatedIndex = pageOffset % filteredItems.length;
+      finalResults = [
+        ...filteredItems.slice(rotatedIndex),
+        ...filteredItems.slice(0, rotatedIndex)
+      ].slice(0, limit);
+    } else {
+      finalResults = filteredItems.slice(pageOffset, pageOffset + limit);
+      if (finalResults.length === 0) {
+        finalResults = filteredItems.slice(0, limit);
+      }
+    }
+  }
+
   let allGifUrls = finalResults.map(r => r.media[0]?.gif?.url || r.url);
 
+  // 5. Fallback estruturado com o repositório se a extração online falhar
   if (finalResults.length === 0) {
     const catObj = GIF_CATEGORIES.find(c => c.id === matchedCategory) || GIF_CATEGORIES[0];
     const startIndex = pageOffset % catObj.gifs.length;
-    // Rotação de GIFs da categoria para nunca faltar ao rolar
     const sliceGifs = [
       ...catObj.gifs.slice(startIndex),
       ...catObj.gifs.slice(0, startIndex)
-    ];
+    ].slice(0, limit);
 
     finalResults = sliceGifs.map((g, idx) => ({
       id: `${g.id}-p${pageOffset}-${idx}`,
