@@ -1,0 +1,6 @@
+{
+  "name": "Raphael Bot - Comandos",
+  "description": "Central de documentação e teste interativo de comandos do bot Raphael no estilo Telegram escuro.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
