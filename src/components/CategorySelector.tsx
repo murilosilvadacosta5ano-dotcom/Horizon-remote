@@ -1,39 +1,15 @@
 import React from 'react';
 import { GIF_CATEGORIES } from '../data/categoriesData';
 
-interface CategorySelectorProps {
-  activeCategory: string;
-  onSelectCategory: (categoryId: string) => void;
-}
+interface CategorySelectorProps { activeCategory: string; onSelectCategory: (categoryId: string) => void; }
 
-export const CategorySelector: React.FC<CategorySelectorProps> = ({
-  activeCategory,
-  onSelectCategory,
-}) => {
-  return (
-    <div className="px-4 my-2">
-      {/* Clean horizontal scrollbar for categories without side arrows or clutter */}
-      <div 
-        className="flex items-center gap-2 overflow-x-auto py-1.5 px-0.5 no-scrollbar scroll-smooth"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
-        {GIF_CATEGORIES.map((cat) => {
-          const isActive = cat.id === activeCategory;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => onSelectCategory(cat.id)}
-              className={`py-2 px-4 rounded-xl text-xs font-black tracking-wider uppercase whitespace-nowrap transition-all flex-shrink-0 cursor-pointer ${
-                isActive
-                  ? 'bg-[#2481cc] text-white shadow-md shadow-[#2481cc]/25 scale-[1.02]'
-                  : 'bg-[#1c2733] text-[#8293a4] hover:text-white hover:bg-[#22303f] border border-[#253241]/40'
-              }`}
-            >
-              {cat.name}
-            </button>
-          );
-        })}
-      </div>
+export const CategorySelector: React.FC<CategorySelectorProps> = ({ activeCategory, onSelectCategory }) => (
+  <div className="px-4 my-1">
+    <div className="flex items-center gap-2 overflow-x-auto py-1.5 px-0.5 no-scrollbar scroll-smooth" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      {GIF_CATEGORIES.map((cat) => {
+        const isActive = cat.id === activeCategory;
+        return <button key={cat.id} onClick={() => onSelectCategory(cat.id)} aria-pressed={isActive} className={`py-2 px-3.5 rounded-xl text-[10px] font-extrabold tracking-wide whitespace-nowrap transition-all flex-shrink-0 cursor-pointer border ${isActive ? 'bg-[#147df5] border-[#4da3ff]/40 text-white shadow-lg shadow-[#147df5]/15' : 'bg-[#12171d] border-white/[0.06] text-[#7d8794] hover:text-white hover:bg-[#171d24]'}`}>{cat.name}</button>;
+      })}
     </div>
-  );
-};
+  </div>
+);
