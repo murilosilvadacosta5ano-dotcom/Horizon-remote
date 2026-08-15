@@ -59,22 +59,42 @@ export default function App() {
     let isMounted = true;
     setHasMore(true);
     const fetchCategoryGifs = async () => {
-      const queryTerm = activeCategory === 'geral' 
-        ? 'trending popular' 
-        : currentCategoryData.name;
+      let queryTerm = currentCategoryData.name;
+      if (activeCategory === 'geral') queryTerm = 'trending gifs';
+      if (activeCategory === 'animes') queryTerm = 'anime';
+      if (activeCategory === 'jogos') queryTerm = 'gaming games';
+      if (activeCategory === 'desenhos') queryTerm = 'cartoons animation';
+      if (activeCategory === 'reacoes') queryTerm = 'reaction memes';
+      if (activeCategory === 'filmes') queryTerm = 'cinema movies';
+      if (activeCategory === 'series') queryTerm = 'tv shows series';
 
       try {
-        const result = await searchOnlineGifs(queryTerm, currentCategoryData.id, 24);
+        const result = await searchOnlineGifs(queryTerm, currentCategoryData.id, 30);
         if (isMounted && result.results && result.results.length > 0) {
-          const formatted: DisplayGif[] = result.results.map((r, i) => ({
-            id: r.id || `${activeCategory}-${i}`,
-            title: r.title || `${currentCategoryData.name} #${i + 1}`,
-            url: r.media[0]?.gif?.url || r.media[0]?.mediumgif?.url || r.url,
-            category: currentCategoryData.name,
-            tags: r.tags || [activeCategory],
-          }));
-          setLiveGifs(formatted);
-          setNextPos(result.next);
+          const seenIds = new Set<string>();
+          const formatted: DisplayGif[] = [];
+
+          for (let i = 0; i < result.results.length; i++) {
+            const r = result.results[i];
+            const gifUrl = r.media[0]?.gif?.url || r.media[0]?.tinygif?.url || r.url;
+            const gifId = extractTenorGifId(gifUrl) || r.id || `${i}`;
+
+            if (gifUrl && !seenIds.has(gifId)) {
+              seenIds.add(gifId);
+              formatted.push({
+                id: r.id || `${activeCategory}-${gifId}-${i}`,
+                title: r.title || `${currentCategoryData.name} #${i + 1}`,
+                url: gifUrl,
+                category: currentCategoryData.name,
+                tags: r.tags || [activeCategory],
+              });
+            }
+          }
+
+          if (formatted.length > 0) {
+            setLiveGifs(formatted);
+            setNextPos(result.next);
+          }
         }
       } catch {
         // Fallback silencioso usando a lista estrita da categoria
@@ -86,7 +106,7 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, [activeCategory, currentCategoryData]);
+  }, [activeCategory, currentCategoryData, searchQuery]);
 
   // 2. Real-Time Direct Search with Debounce
   useEffect(() => {

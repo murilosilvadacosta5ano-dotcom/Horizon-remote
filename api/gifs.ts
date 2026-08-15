@@ -22,7 +22,7 @@ interface TenorResultItem {
   tags: string[];
 }
 
-function extractTenorGifId(url: string): string {
+export function extractTenorGifId(url: string): string {
   if (!url) return '';
   const idMatch = url.match(/\/([a-zA-Z0-9_-]+)AAAA[a-zA-Z0-9_]/i);
   if (idMatch && idMatch[1]) {
@@ -33,7 +33,7 @@ function extractTenorGifId(url: string): string {
   return last.split('.')[0] || url;
 }
 
-function generateTenorSlug(query: string): string {
+export function generateTenorSlug(query: string): string {
   const clean = query
     .trim()
     .toLowerCase()
