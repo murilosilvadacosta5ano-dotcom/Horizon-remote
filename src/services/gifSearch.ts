@@ -1,106 +1,105 @@
-import {
-  scrapeGifsFromSite,
-  generateTenorSlug,
-  getRandomScrapedGif,
-} from "./tenorScraper";
-import {
-  detectCategoryFromQuery,
-  GIF_CATEGORIES,
-} from "../data/categoriesData";
-import { GifSearchResult, TenorResultItem } from "../types";
+import { scrapeGifsFromSite, generateTenorSlug, getRandomScrapedGif } from './tenorScraper';
+import { detectCategoryFromQuery, GIF_CATEGORIES } from '../data/categoriesData';
+import { GifSearchResult, TenorResultItem } from '../types';
 
 export { generateTenorSlug as getTenorSlug };
 
-/**
- * Serviço central de GIFs.
- * No navegador consulta a Kaise API; no backend usa o provider/scraper.
- */
+const API_TIMEOUT_MS = 5000;
+const MAX_RESULTS = 40;
+
+function createAbortSignal(timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  return { controller, timeout };
+}
+
+function normalizeResult(data: any, fallbackCategory: string, query: string, offset: number): GifSearchResult | null {
+  if (!data?.success || !Array.isArray(data.results) || data.results.length === 0) return null;
+
+  const results = data.results as TenorResultItem[];
+  const allGifs = results
+    .map((item) => item?.media?.[0]?.gif?.url || item?.url)
+    .filter(Boolean) as string[];
+
+  if (!allGifs.length) return null;
+
+  return {
+    gifUrl: allGifs[0],
+    allGifs,
+    results,
+    searchUrl: data.search_url || `https://kaise.space/?search=${encodeURIComponent(query)}`,
+    tenorSearchUrl: data.tenor_search_url || `https://tenor.com/search/${encodeURIComponent(generateTenorSlug(query))}`,
+    totalFound: Number(data.total_found || data.total || results.length),
+    fromCache: Boolean(data.from_cache),
+    categoryMatched: data.category || fallbackCategory,
+    next: typeof data.next === 'string' ? data.next : String(offset + results.length),
+  };
+}
+
 export async function searchOnlineGifs(
   rawQuery: string,
   forcedCategory?: string,
   limit = 30,
-  pos = "0"
+  pos = '0'
 ): Promise<GifSearchResult> {
-  const cleanQuery = (rawQuery || "geral").trim() || "geral";
-  const matchedCategory =
-    forcedCategory || detectCategoryFromQuery(cleanQuery);
-  const offset = Math.max(parseInt(pos || "0", 10) || 0, 0);
-  const slug = generateTenorSlug(cleanQuery);
-  const tenorSearchWebUrl = `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`;
+  const query = (rawQuery || 'geral').trim() || 'geral';
+  const category = forcedCategory || detectCategoryFromQuery(query);
+  const offset = Math.max(Number.parseInt(pos, 10) || 0, 0);
+  const safeLimit = Math.min(Math.max(limit, 1), MAX_RESULTS);
 
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-
+      const { controller, timeout } = createAbortSignal(API_TIMEOUT_MS);
       const params = new URLSearchParams({
-        q: cleanQuery,
-        limit: String(limit),
+        search: query,
+        q: query,
+        limit: String(safeLimit),
         offset: String(offset),
+        pos: String(offset),
       });
+      if (forcedCategory) params.set('category', forcedCategory);
 
-      if (forcedCategory) {
-        params.set("category", forcedCategory);
-      }
-
-      const response = await fetch(`/api/v1/search?${params.toString()}`, {
+      const response = await fetch(`/api/gifs?${params.toString()}`, {
         signal: controller.signal,
-        headers: { Accept: "application/json" },
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
       });
-
-      clearTimeout(timeoutId);
+      window.clearTimeout(timeout);
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success && Array.isArray(data.results) && data.results.length) {
-          const allGifs = data.results.map(
-            (item: TenorResultItem) => item.media?.[0]?.gif?.url || item.url
-          );
-
-          return {
-            gifUrl: allGifs[0],
-            allGifs,
-            results: data.results,
-            searchUrl: data.results[0]?.source?.url || tenorSearchWebUrl,
-            tenorSearchUrl:
-              data.results[0]?.source?.url || tenorSearchWebUrl,
-            totalFound: data.total || data.results.length,
-            fromCache: Boolean(data.from_cache),
-            categoryMatched: data.category || matchedCategory,
-            next: data.next_offset || String(offset + data.results.length),
-          };
-        }
+        const normalized = normalizeResult(data, category, query, offset);
+        if (normalized) return normalized;
       }
     } catch {
-      // Fallback local seguro no navegador.
+      // Use local catalog instead of leaving the UI blank.
     }
 
-    return createLocalCategoryResult(cleanQuery, matchedCategory, offset, limit);
+    return createLocalCategoryResult(query, category, offset, safeLimit);
   }
 
-  return scrapeGifsFromSite(
-    cleanQuery,
-    forcedCategory,
-    limit,
-    String(offset)
-  );
+  return scrapeGifsFromSite(query, forcedCategory, safeLimit, String(offset));
 }
 
 export async function getRandomGif(category?: string) {
-  if (typeof window !== "undefined") {
-    const params = new URLSearchParams();
-    if (category) params.set("category", category);
-
-    const response = await fetch(`/api/v1/random?${params.toString()}`, {
-      headers: { Accept: "application/json" },
-    });
-
-    if (!response.ok) {
-      throw new Error("Random GIF request failed");
+  if (typeof window !== 'undefined') {
+    try {
+      const params = new URLSearchParams();
+      if (category) params.set('category', category);
+      const { controller, timeout } = createAbortSignal(API_TIMEOUT_MS);
+      const response = await fetch(`/api/v1/random?${params.toString()}`, {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
+      window.clearTimeout(timeout);
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.success && data?.result) return data.result;
+      }
+    } catch {
+      // Fall back locally.
     }
-
-    const data = await response.json();
-    return data.result;
   }
 
   return getRandomScrapedGif(category);
@@ -112,52 +111,35 @@ function createLocalCategoryResult(
   offset: number,
   limit: number
 ): GifSearchResult {
-  const catObj =
-    GIF_CATEGORIES.find((categoryItem) => categoryItem.id === category) ||
-    GIF_CATEGORIES[0];
+  const categoryObject = GIF_CATEGORIES.find((item) => item.id === category) || GIF_CATEGORIES[0];
+  const source = categoryObject?.gifs || [];
+  const start = source.length ? offset % source.length : 0;
+  const ordered = source.length
+    ? [...source.slice(start), ...source.slice(0, start)].slice(0, limit)
+    : [];
 
-  if (!catObj || catObj.gifs.length === 0) {
-    throw new Error(`Category "${category}" has no GIFs`);
-  }
-
-  const startIndex = offset % catObj.gifs.length;
-  const orderedGifs = [
-    ...catObj.gifs.slice(startIndex),
-    ...catObj.gifs.slice(0, startIndex),
-  ].slice(0, limit);
-
-  const results: TenorResultItem[] = orderedGifs.map((gif, index) => ({
+  const results: TenorResultItem[] = ordered.map((gif, index) => ({
     id: `local-${gif.id}-${offset}-${index}`,
     title: gif.title,
     content_description: gif.title,
-    itemurl: "https://kaise.space/",
+    itemurl: 'https://www.kaise.space/',
     url: gif.url,
     hasaudio: false,
-    media: [
-      {
-        gif: { url: gif.url, dims: [498, 278] },
-        tinygif: { url: gif.url, dims: [220, 122] },
-      },
-    ],
+    media: [{ gif: { url: gif.url, dims: [498, 278] }, tinygif: { url: gif.url, dims: [220, 122] } }],
     tags: gif.tags,
-    source: {
-      provider: "kaise-local",
-      url: "https://kaise.space/",
-    },
+    source: { provider: 'kaise-local', url: 'https://www.kaise.space/' },
   }));
 
-  const allGifs = results.map((result) => result.url);
-  const selectedIdx = Math.floor(Math.random() * allGifs.length);
-
+  const allGifs = results.map((item) => item.url);
   return {
-    gifUrl: allGifs[selectedIdx] || allGifs[0],
+    gifUrl: allGifs[0] || '',
     allGifs,
     results,
-    searchUrl: "https://kaise.space/",
-    tenorSearchUrl: "https://kaise.space/",
-    totalFound: allGifs.length,
+    searchUrl: `https://www.kaise.space/?search=${encodeURIComponent(query)}`,
+    tenorSearchUrl: `https://tenor.com/search/${encodeURIComponent(generateTenorSlug(query))}`,
+    totalFound: source.length,
     fromCache: false,
     categoryMatched: category,
-    next: String(offset + results.length),
+    next: allGifs.length ? String(offset + allGifs.length) : undefined,
   };
 }
