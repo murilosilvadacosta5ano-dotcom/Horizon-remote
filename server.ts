@@ -39,10 +39,12 @@ async function startServer() {
       success: true,
       key_used: key,
       query: searchQuery,
-      search_url: result.searchUrl,
+      search_url: result.tenorSearchUrl,
+      tenor_search_url: result.tenorSearchUrl,
       gif_url: result.gifUrl,
       total_found: result.totalFound,
-      source: "Raphael GIF Cloud"
+      from_cache: result.fromCache,
+      source: "Tenor Direct Engine"
     });
   });
 
@@ -58,10 +60,12 @@ async function startServer() {
       success: true,
       key_used: key,
       query: search,
-      search_url: result.searchUrl,
+      search_url: result.tenorSearchUrl,
+      tenor_search_url: result.tenorSearchUrl,
       gif_url: result.gifUrl,
       total_found: result.totalFound,
-      source: "Raphael GIF Cloud"
+      from_cache: result.fromCache,
+      source: "Tenor Direct Engine"
     });
   });
 

@@ -1,36 +1,50 @@
 import React, { useState } from 'react';
 import { 
+  Link2,
   Key, 
   Search, 
   Send, 
-  Sparkles, 
   Copy, 
-  Code2, 
   Bot,
-  Loader2
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Check,
+  Code2
 } from 'lucide-react';
-import { getRandomGif } from '../data/animeGifs';
+import { getRandomGif, ANIME_GIFS_DATABASE } from '../data/animeGifs';
 
 interface BotApiSectionProps {
   onShowToast: (msg: string) => void;
 }
 
-// Chave pública e universal única para todos os usuários e bots
 const UNIVERSAL_API_KEY = 'raphaelsboting';
 
+function getTenorSlug(query: string): string {
+  const clean = query
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-");
+  return clean.endsWith("-gifs") ? clean : `${clean}-gifs`;
+}
+
 export const BotApiSection: React.FC<BotApiSectionProps> = ({ onShowToast }) => {
-  // Campo de pesquisa começa totalmente em branco
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [currentOrigin, setCurrentOrigin] = useState<string>('');
-  const [apiResponse, setApiResponse] = useState<{
+  const [cachedPool, setCachedPool] = useState<string[]>([]);
+  const [poolIndex, setPoolIndex] = useState<number>(0);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [activeCodeTab, setActiveCodeTab] = useState<'curl' | 'python' | 'node'>('curl');
+  
+  const [apiResult, setApiResult] = useState<{
     query: string;
-    search_url: string;
     gif_url: string;
-    total_found: number;
-    source: string;
+    tenor_search_url: string;
   } | null>(null);
-  const [activeCodeTab, setActiveCodeTab] = useState<'curl' | 'js' | 'python'>('js');
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -38,105 +52,114 @@ export const BotApiSection: React.FC<BotApiSectionProps> = ({ onShowToast }) => 
     }
   }, []);
 
-  const handleSendApiRequest = async () => {
+  const detectedDomain = currentOrigin || (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') ? window.location.origin : 'https://kaise.space');
+  const currentQueryTerm = searchQuery.trim() || 'anime abraço';
+  const encodedQuery = encodeURIComponent(currentQueryTerm);
+  const directApiLink = `${detectedDomain}/api/gifs?key=${UNIVERSAL_API_KEY}&search=${encodedQuery}`;
+
+  const handleCopy = (text: string, fieldName: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    onShowToast(`${label} copiado!`);
+    setTimeout(() => setCopiedField(null), 1500);
+  };
+
+  const getCodeSnippet = () => {
+    switch (activeCodeTab) {
+      case 'curl':
+        return `curl -X GET "${directApiLink}"`;
+      case 'python':
+        return `# Python (Telegram Bot ou Discord.py)
+import requests
+
+url = "${detectedDomain}/api/gifs"
+params = {"key": "${UNIVERSAL_API_KEY}", "search": "${currentQueryTerm}"}
+
+res = requests.get(url, params=params).json()
+gif_url = res["gif_url"] # Link direto do GIF`;
+      case 'node':
+        return `// Node.js (Discord.js ou Telegram Bot)
+const res = await fetch("${detectedDomain}/api/gifs?key=${UNIVERSAL_API_KEY}&search=${encodedQuery}");
+const data = await res.json();
+const gifUrl = data.gif_url; // Link direto do GIF`;
+    }
+  };
+
+  const handleFetchGif = async () => {
     if (!searchQuery.trim()) {
-      onShowToast('Digite no campo o que deseja pesquisar');
+      onShowToast('Digite o nome da pesquisa');
       return;
     }
 
     setIsLoading(true);
+    const term = searchQuery.trim();
+    const slug = getTenorSlug(term);
+    const tenorSearchUrl = `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`;
 
     try {
-      const term = searchQuery.trim();
       const apiUrl = `/api/gifs?key=${UNIVERSAL_API_KEY}&search=${encodeURIComponent(term)}`;
+      const res = await fetch(apiUrl);
       
-      const response = await fetch(apiUrl);
-      if (!response.ok) {
-        throw new Error('Falha ao comunicar com a API');
-      }
+      if (!res.ok) throw new Error('Erro na requisição');
+      const data = await res.json();
 
-      const data = await response.json();
-
-      setApiResponse({
+      setApiResult({
         query: data.query || term,
-        search_url: data.search_url || `${currentOrigin || (typeof window !== 'undefined' ? window.location.origin : '')}/api/gifs?key=${UNIVERSAL_API_KEY}&search=${encodeURIComponent(term)}`,
         gif_url: data.gif_url,
-        total_found: data.total_found || 1,
-        source: data.source || 'Raphael GIF Cloud'
+        tenor_search_url: data.tenor_search_url || tenorSearchUrl
       });
 
-      onShowToast(`GIF de "${term}" carregado com sucesso!`);
-    } catch (err) {
-      console.error(err);
-      // Fallback to rich anime database
-      const term = searchQuery.trim();
+      const local = getRandomGif(term);
+      const list = ANIME_GIFS_DATABASE[local.category] || [data.gif_url];
+      setCachedPool(list);
+      setPoolIndex(0);
+
+      onShowToast(`GIF de "${term}" puxado com sucesso!`);
+    } catch {
       const fallback = getRandomGif(term);
-      const host = currentOrigin || (typeof window !== 'undefined' ? window.location.origin : '');
-      const searchUrl = `${host}/api/gifs?key=${UNIVERSAL_API_KEY}&search=${encodeURIComponent(term)}`;
-      
-      setApiResponse({
+      const pool = ANIME_GIFS_DATABASE[fallback.category] || [fallback.url];
+      setCachedPool(pool);
+      setPoolIndex(0);
+
+      setApiResult({
         query: term,
-        search_url: searchUrl,
         gif_url: fallback.url,
-        total_found: fallback.total,
-        source: 'Raphael GIF Cloud'
+        tenor_search_url: tenorSearchUrl
       });
-      onShowToast(`GIF de "${term}" processado!`);
+      onShowToast(`GIF de "${term}" pronto!`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const detectedDomain = currentOrigin || (typeof window !== 'undefined' ? window.location.origin : 'https://seu-dominio.com');
-  const encodedQuery = encodeURIComponent(searchQuery.trim() || 'anime abraço');
-  const endpointUrl = `${detectedDomain}/api/gifs?key=${UNIVERSAL_API_KEY}&search=${encodedQuery}`;
+  const handleNextGif = async () => {
+    if (!apiResult) return;
 
-  const currentSlug = (searchQuery.trim() || 'anime abraço').toLowerCase().replace(/\s+/g, '-');
-  const liveSearchUrl = `${detectedDomain}/api/gifs?key=${UNIVERSAL_API_KEY}&search=${encodeURIComponent(searchQuery.trim() || 'anime abraço')}`;
-
-  const getCodeSnippet = () => {
-    const currentQueryTerm = searchQuery.trim() || 'anime abraço';
-    switch (activeCodeTab) {
-      case 'js':
-        return `// Discord.js / Telegram Bot (Node.js)
-// Busca automática conectando ao domínio atual do site
-const baseUrl = "${detectedDomain}"; 
-const pesquisa = "${currentQueryTerm}"; 
-const url = \`\${baseUrl}/api/gifs?key=${UNIVERSAL_API_KEY}&search=\${encodeURIComponent(pesquisa)}\`;
-
-const res = await fetch(url);
-const data = await res.json();
-
-// data.gif_url contém o link direto do GIF
-console.log("GIF URL:", data.gif_url);
-console.log("Status:", data.status);`;
-      case 'python':
-        return `# Python (Telegram Bot ou Discord.py)
-import requests
-
-base_url = "${detectedDomain}"
-pesquisa = "${currentQueryTerm}"
-url = f"{base_url}/api/gifs?key=${UNIVERSAL_API_KEY}&search={pesquisa}"
-
-res = requests.get(url)
-data = res.json()
-
-# GIF retornado na hora
-gif_url = data["gif_url"]
-print("GIF:", gif_url)`;
-      case 'curl':
-        return `curl -X GET "${endpointUrl}"`;
+    if (cachedPool.length > 1) {
+      const nextIdx = (poolIndex + 1) % cachedPool.length;
+      setPoolIndex(nextIdx);
+      setApiResult(prev => prev ? {
+        ...prev,
+        gif_url: cachedPool[nextIdx]
+      } : null);
+      onShowToast('Outro GIF puxado!');
+      return;
     }
-  };
 
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(getCodeSnippet());
-    onShowToast('Código do bot copiado!');
-  };
-
-  const handleCopyKey = () => {
-    navigator.clipboard.writeText(UNIVERSAL_API_KEY);
-    onShowToast('Chave única da API copiada!');
+    setIsLoading(true);
+    try {
+      const apiUrl = `/api/gifs?key=${UNIVERSAL_API_KEY}&search=${encodeURIComponent(apiResult.query)}`;
+      const res = await fetch(apiUrl);
+      if (res.ok) {
+        const data = await res.json();
+        setApiResult(prev => prev ? { ...prev, gif_url: data.gif_url } : null);
+        onShowToast('Outro GIF puxado!');
+      }
+    } catch {
+      // no-op
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -146,51 +169,87 @@ print("GIF:", gif_url)`;
         <div className="flex items-center gap-1.5">
           <Bot className="w-4 h-4 text-[#2aabee]" />
           <h2 className="text-xs font-semibold text-[#8293a4] uppercase tracking-wider">
-            API Raphael GIF (Live)
+            Puxar GIF (API)
           </h2>
         </div>
         <span className="text-[10px] text-[#34c759] font-medium bg-[#34c759]/10 px-2 py-0.5 rounded-full">
-          API Ativa
+          Pronto para Bot
         </span>
       </div>
 
-      {/* Solid Container in Telegram Style */}
-      <div className="bg-[#1c2733] rounded-2xl p-4 space-y-4 shadow-none">
+      {/* Main Clean Card */}
+      <div className="bg-[#1c2733] rounded-2xl p-4 space-y-3.5">
         
-        {/* Field 1: Key (Única e universal para todos) */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-[#8293a4] flex items-center gap-1.5">
-              <Key className="w-3.5 h-3.5 text-[#2aabee]" />
-              <span>Key (Chave Única Universal)</span>
-            </label>
-            <span className="text-[10px] text-[#708499]">
-              Para todos os bots
+        {/* 1. LINK */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-[#8293a4] flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Link2 className="w-3.5 h-3.5 text-[#2aabee]" />
+              <span>Link</span>
             </span>
+            <span className="text-[10px] text-[#708499]">URL do Endpoint</span>
+          </label>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              readOnly
+              value={directApiLink}
+              className="w-full px-3 py-2.5 bg-[#161f2a] rounded-xl text-xs font-mono text-[#2aabee] border-0 select-all focus:outline-none"
+            />
+            <button
+              onClick={() => handleCopy(directApiLink, 'link', 'Link')}
+              className="p-2.5 rounded-xl bg-[#2481cc] active:bg-[#1f70b2] text-white flex-shrink-0 transition-colors"
+              title="Copiar Link"
+            >
+              {copiedField === 'link' ? (
+                <Check className="w-4 h-4 text-white" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+            </button>
           </div>
+        </div>
+
+        {/* 2. KEY */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-[#8293a4] flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Key className="w-3.5 h-3.5 text-[#2aabee]" />
+              <span>Key</span>
+            </span>
+            <span className="text-[10px] text-[#708499]">Chave de Acesso</span>
+          </label>
 
           <div className="flex items-center gap-2">
             <input
               type="text"
               readOnly
               value={UNIVERSAL_API_KEY}
-              className="w-full px-3.5 py-2.5 bg-[#161f2a] rounded-xl text-xs font-mono text-[#2aabee] font-semibold border-0 cursor-default focus:outline-none"
+              className="w-full px-3 py-2.5 bg-[#161f2a] rounded-xl text-xs font-mono text-[#2aabee] font-semibold border-0 select-all focus:outline-none"
             />
             <button
-              onClick={handleCopyKey}
-              className="p-2.5 rounded-xl bg-[#2481cc] active:bg-[#1f70b2] text-white flex-shrink-0"
-              title="Copiar Chave Única"
+              onClick={() => handleCopy(UNIVERSAL_API_KEY, 'key', 'Key')}
+              className="p-2.5 rounded-xl bg-[#2481cc] active:bg-[#1f70b2] text-white flex-shrink-0 transition-colors"
+              title="Copiar Key"
             >
-              <Copy className="w-4 h-4" />
+              {copiedField === 'key' ? (
+                <Check className="w-4 h-4 text-white" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
             </button>
           </div>
         </div>
 
-        {/* Field 2: Search name or category (Campo em branco) */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-[#8293a4] flex items-center gap-1.5">
-            <Search className="w-3.5 h-3.5 text-[#2aabee]" />
-            <span>Search name or category</span>
+        {/* 3. NOME DE PESQUISAR */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-[#8293a4] flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Search className="w-3.5 h-3.5 text-[#2aabee]" />
+              <span>Nome de pesquisar</span>
+            </span>
+            <span className="text-[10px] text-[#708499]">Termo / Ação</span>
           </label>
 
           <div className="flex items-center gap-2">
@@ -199,15 +258,14 @@ print("GIF:", gif_url)`;
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSendApiRequest();
+                if (e.key === 'Enter') handleFetchGif();
               }}
-              placeholder="Digite o que deseja puxar (ex: anime abraço, kiss anime)..."
-              className="w-full px-3.5 py-2.5 bg-[#161f2a] rounded-xl text-xs text-white placeholder-[#708499] focus:outline-none focus:bg-[#1f2b3a] border-0 transition-colors"
+              placeholder="Digite o que pesquisar (ex: abraço, kiss, soco)..."
+              className="w-full px-3 py-2.5 bg-[#161f2a] rounded-xl text-xs text-white placeholder-[#708499] focus:outline-none focus:bg-[#1f2b3a] border-0 transition-colors"
             />
 
-            {/* Submit / Send Button */}
             <button
-              onClick={handleSendApiRequest}
+              onClick={handleFetchGif}
               disabled={isLoading}
               className="px-4 py-2.5 rounded-xl bg-[#2481cc] active:bg-[#1f70b2] text-white text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 transition-colors disabled:opacity-50"
             >
@@ -216,90 +274,81 @@ print("GIF:", gif_url)`;
               ) : (
                 <Send className="w-3.5 h-3.5" />
               )}
-              <span>{isLoading ? 'Puxando...' : 'Enviar'}</span>
+              <span>{isLoading ? 'Puxando...' : 'Puxar'}</span>
             </button>
           </div>
-
-          {/* Live search URL preview */}
-          {searchQuery.trim() && (
-            <div className="pt-1 flex items-center justify-between text-[11px] text-[#708499] font-mono truncate">
-              <span className="truncate">
-                Puxando de: <span className="text-[#2aabee]">{liveSearchUrl}</span>
-              </span>
-            </div>
-          )}
         </div>
 
-        {/* Live API Result Preview */}
-        {apiResponse && (
-          <div className="p-3 bg-[#101720] rounded-xl space-y-2.5 animate-fadeIn border border-[#253241]/40">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-[#8293a4] flex items-center gap-1.5">
+        {/* RESULTADO DO GIF */}
+        {apiResult && (
+          <div className="pt-2 space-y-2.5 border-t border-[#253241]/60 animate-fadeIn">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[#8293a4] flex items-center gap-1.5 truncate">
                 <Sparkles className="w-3.5 h-3.5 text-[#2aabee]" />
-                <span>Puxado: <strong className="text-white">{apiResponse.query}</strong></span>
+                <span className="truncate">GIF de: <strong className="text-white">{apiResult.query}</strong></span>
               </span>
-              <span className="text-[#34c759] font-mono text-[10px]">200 OK</span>
-            </div>
-
-            {/* Search URL Card */}
-            <div className="p-2 rounded-lg bg-[#161f2a] flex items-center justify-between gap-2 text-[11px]">
-              <div className="font-mono text-[#2aabee] truncate flex-1">
-                {apiResponse.search_url}
-              </div>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(apiResponse.search_url);
-                  onShowToast('Link copiado!');
-                }}
-                className="p-1 text-[#8293a4] hover:text-white"
-                title="Copiar Link"
+                onClick={() => handleCopy(apiResult.tenor_search_url, 'tenor', 'Link da busca')}
+                className="text-[11px] text-[#2aabee] hover:underline flex items-center gap-1"
               >
-                <Copy className="w-3.5 h-3.5" />
+                <span>Ver busca</span>
               </button>
             </div>
 
-            {/* Instant GIF Render */}
-            <div className="relative w-full h-48 rounded-lg overflow-hidden bg-[#16202c]">
+            {/* Imagem do GIF */}
+            <div className="relative w-full h-48 rounded-xl overflow-hidden bg-[#101720]">
               <img
-                key={apiResponse.gif_url}
-                src={apiResponse.gif_url}
-                alt={`GIF para ${apiResponse.query}`}
+                key={apiResult.gif_url}
+                src={apiResult.gif_url}
+                alt={`GIF de ${apiResult.query}`}
                 referrerPolicy="no-referrer"
-                className="w-full h-full object-cover rounded-lg"
+                className="w-full h-full object-cover rounded-xl"
               />
             </div>
 
-            {/* JSON Output preview */}
-            <div className="bg-[#0b1017] p-2.5 rounded-lg font-mono text-[10px] text-[#93c5fd] overflow-x-auto space-y-0.5">
-              <div>&#123;</div>
-              <div className="pl-3 text-emerald-400">"status": 200,</div>
-              <div className="pl-3 text-[#38bdf8]">"key": "{UNIVERSAL_API_KEY}",</div>
-              <div className="pl-3 text-amber-300">"query": "{apiResponse.query}",</div>
-              <div className="pl-3 text-sky-300">"search_url": "{apiResponse.search_url}",</div>
-              <div className="pl-3 text-purple-300">"gif_url": "{apiResponse.gif_url}",</div>
-              <div className="pl-3 text-slate-400">"source": "Raphael GIF Cloud"</div>
-              <div>&#125;</div>
+            {/* Botões de Ação Direta */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleNextGif}
+                disabled={isLoading}
+                className="flex-1 py-2 px-3 rounded-xl bg-[#2481cc] active:bg-[#1f70b2] text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>Puxar outro</span>
+              </button>
+
+              <button
+                onClick={() => handleCopy(apiResult.gif_url, 'gif', 'Link direto do GIF')}
+                className="py-2 px-3 rounded-xl bg-[#161f2a] active:bg-[#1f2b3a] text-white text-xs font-medium flex items-center justify-center gap-1.5 border border-[#253241]/70"
+              >
+                {copiedField === 'gif' ? (
+                  <Check className="w-3.5 h-3.5 text-[#34c759]" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 text-[#2aabee]" />
+                )}
+                <span>Copiar GIF</span>
+              </button>
             </div>
           </div>
         )}
 
-        {/* Integration Code for Discord/Telegram Developers */}
-        <div className="space-y-2 pt-1 border-t border-[#253241]/70">
+        {/* CÓDIGO DIRETO E RÁPIDO PARA BOT (CURL / PYTHON / NODEJS) */}
+        <div className="pt-2 border-t border-[#253241]/60 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-[#8293a4] flex items-center gap-1">
+            <span className="text-[11px] font-semibold text-[#8293a4] flex items-center gap-1.5">
               <Code2 className="w-3.5 h-3.5 text-[#2aabee]" />
-              <span>Código pronto para o bot:</span>
+              <span>Código rápido:</span>
             </span>
 
-            {/* Language Tabs */}
+            {/* Tabs para trocar entre cURL, Python e Node.js */}
             <div className="flex items-center gap-1 bg-[#101720] p-0.5 rounded-lg">
               <button
-                onClick={() => setActiveCodeTab('js')}
+                onClick={() => setActiveCodeTab('curl')}
                 className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
-                  activeCodeTab === 'js' ? 'bg-[#2481cc] text-white' : 'text-[#8293a4]'
+                  activeCodeTab === 'curl' ? 'bg-[#2481cc] text-white' : 'text-[#8293a4]'
                 }`}
               >
-                Discord.js
+                cURL
               </button>
               <button
                 onClick={() => setActiveCodeTab('python')}
@@ -310,26 +359,30 @@ print("GIF:", gif_url)`;
                 Python
               </button>
               <button
-                onClick={() => setActiveCodeTab('curl')}
+                onClick={() => setActiveCodeTab('node')}
                 className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
-                  activeCodeTab === 'curl' ? 'bg-[#2481cc] text-white' : 'text-[#8293a4]'
+                  activeCodeTab === 'node' ? 'bg-[#2481cc] text-white' : 'text-[#8293a4]'
                 }`}
               >
-                cURL
+                Node.js
               </button>
             </div>
           </div>
 
-          {/* Code box */}
+          {/* Snippet box */}
           <div className="relative bg-[#101720] rounded-xl p-3 font-mono text-[10px] text-[#cbd5e1] overflow-x-auto">
             <button
-              onClick={handleCopyCode}
-              className="absolute top-2 right-2 p-1.5 rounded-lg bg-[#1c2733] text-[#8293a4] hover:text-white"
+              onClick={() => handleCopy(getCodeSnippet(), 'code', 'Código')}
+              className="absolute top-2 right-2 p-1.5 rounded-lg bg-[#1c2733] text-[#8293a4] hover:text-white transition-colors"
               title="Copiar código"
             >
-              <Copy className="w-3.5 h-3.5" />
+              {copiedField === 'code' ? (
+                <Check className="w-3.5 h-3.5 text-[#34c759]" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
             </button>
-            <pre className="whitespace-pre pr-8">{getCodeSnippet()}</pre>
+            <pre className="whitespace-pre pr-8 select-all">{getCodeSnippet()}</pre>
           </div>
         </div>
 

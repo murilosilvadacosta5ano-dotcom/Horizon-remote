@@ -10,7 +10,7 @@ export const ONLY_COMMANDS: Command[] = [
     usage: '/abraco @usuario',
     example: '/abraco @Mariana',
     searchQuery: 'abraço anime',
-    searchUrl: 'https://cdn.raphaelbot.com/search/abraco-anime',
+    searchUrl: 'https://kaise.space/api/gifs?key=raphaelsboting&search=abra%C3%A7o%20anime',
     gifs: ANIME_GIFS_DATABASE.abraco
   },
   {
@@ -21,7 +21,7 @@ export const ONLY_COMMANDS: Command[] = [
     usage: '/kiss @usuario',
     example: '/kiss @Lucas',
     searchQuery: 'kiss anime',
-    searchUrl: 'https://cdn.raphaelbot.com/search/kiss-anime',
+    searchUrl: 'https://kaise.space/api/gifs?key=raphaelsboting&search=kiss%20anime',
     gifs: ANIME_GIFS_DATABASE.kiss
   },
   {
@@ -32,7 +32,7 @@ export const ONLY_COMMANDS: Command[] = [
     usage: '/socar @usuario',
     example: '/socar @Thiago',
     searchQuery: 'soco anime',
-    searchUrl: 'https://cdn.raphaelbot.com/search/soco-anime',
+    searchUrl: 'https://kaise.space/api/gifs?key=raphaelsboting&search=soco%20anime',
     gifs: ANIME_GIFS_DATABASE.socar
   },
   {
@@ -43,7 +43,7 @@ export const ONLY_COMMANDS: Command[] = [
     usage: '/tapa @usuario',
     example: '/tapa @Pedro',
     searchQuery: 'tapa anime',
-    searchUrl: 'https://cdn.raphaelbot.com/search/tapa-anime',
+    searchUrl: 'https://kaise.space/api/gifs?key=raphaelsboting&search=tapa%20anime',
     gifs: ANIME_GIFS_DATABASE.tapa
   },
   {
@@ -54,7 +54,7 @@ export const ONLY_COMMANDS: Command[] = [
     usage: '/chutar @usuario',
     example: '/chutar @Felipe',
     searchQuery: 'chute anime',
-    searchUrl: 'https://cdn.raphaelbot.com/search/chute-anime',
+    searchUrl: 'https://kaise.space/api/gifs?key=raphaelsboting&search=chute%20anime',
     gifs: ANIME_GIFS_DATABASE.chutar
   },
   {
@@ -65,7 +65,7 @@ export const ONLY_COMMANDS: Command[] = [
     usage: '/atacar @usuario',
     example: '/atacar @Bruno',
     searchQuery: 'ataque anime',
-    searchUrl: 'https://cdn.raphaelbot.com/search/ataque-anime',
+    searchUrl: 'https://kaise.space/api/gifs?key=raphaelsboting&search=ataque%20anime',
     gifs: ANIME_GIFS_DATABASE.atacar
   },
   {
@@ -76,7 +76,7 @@ export const ONLY_COMMANDS: Command[] = [
     usage: '/cafune @usuario',
     example: '/cafune @Gabriel',
     searchQuery: 'cafuné anime',
-    searchUrl: 'https://cdn.raphaelbot.com/search/cafune-anime',
+    searchUrl: 'https://kaise.space/api/gifs?key=raphaelsboting&search=cafun%C3%A9%20anime',
     gifs: ANIME_GIFS_DATABASE.cafune
   },
   {
@@ -87,7 +87,7 @@ export const ONLY_COMMANDS: Command[] = [
     usage: '/beliscar @usuario',
     example: '/beliscar @Carla',
     searchQuery: 'beliscar anime',
-    searchUrl: 'https://cdn.raphaelbot.com/search/beliscar-anime',
+    searchUrl: 'https://kaise.space/api/gifs?key=raphaelsboting&search=beliscar%20anime',
     gifs: ANIME_GIFS_DATABASE.beliscar
   }
 ];

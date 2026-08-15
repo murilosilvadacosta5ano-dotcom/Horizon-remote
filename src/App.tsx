@@ -1,8 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { SearchBar } from './components/SearchBar';
 import { Toast } from './components/Toast';
 import { CommandItem } from './components/CommandItem';
 import { BotApiSection } from './components/BotApiSection';
+import { LoadingScreen } from './components/LoadingScreen';
 import { ONLY_COMMANDS } from './data/commands';
 import { MoreHorizontal } from 'lucide-react';
 import { Command } from './types';
@@ -11,6 +13,15 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    // Tela de carregamento rápida e elegante na inicialização
+    const timer = setTimeout(() => {
+      setIsAppLoading(false);
+    }, 850);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Real-time search filtering by name and description
   const filteredCommands = useMemo(() => {
@@ -42,6 +53,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0e1621] text-[#f5f5f5] flex justify-center selection:bg-[#2481cc]/30">
+      {/* Loading Splash Screen */}
+      <AnimatePresence>
+        {isAppLoading && <LoadingScreen isLoading={isAppLoading} />}
+      </AnimatePresence>
+
       {/* Mobile-Only Container */}
       <div className="w-full max-w-md min-h-screen bg-[#0e1621] flex flex-col pb-12">
         
