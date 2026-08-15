@@ -14,6 +14,11 @@ export interface TenorMediaObject {
   tinymp4?: TenorMediaFormat;
 }
 
+export interface GifSource {
+  provider: string;
+  url: string;
+}
+
 export interface TenorResultItem {
   id: string;
   title: string;
@@ -23,6 +28,7 @@ export interface TenorResultItem {
   hasaudio: boolean;
   media: TenorMediaObject[];
   tags?: string[];
+  source?: GifSource;
 }
 
 export interface GifCategory {
