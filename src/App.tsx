@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { SearchBar } from './components/SearchBar';
 import { Toast } from './components/Toast';
@@ -52,12 +52,13 @@ export default function App() {
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [isDocsOpen, setIsDocsOpen] = useState(false);
   const [liveGifs, setLiveGifs] = useState<DisplayGif[]>([]);
-  const [nextPos, setNextPos] = useState<string | undefined>();
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
 
   const requestIdRef = useRef(0);
   const loadingMoreRef = useRef(false);
+  const nextPosRef = useRef<string | undefined>();
+  const lastRequestedOffsetRef = useRef<string | undefined>();
   const toastTimerRef = useRef<number | null>(null);
 
   const currentCategoryData = useMemo(
@@ -80,10 +81,11 @@ export default function App() {
     const requestId = ++requestIdRef.current;
     const controller = new AbortController();
 
-    setIsLoadingMore(false);
     loadingMoreRef.current = false;
-    setHasMore(true);
-    setNextPos(undefined);
+    nextPosRef.current = undefined;
+    lastRequestedOffsetRef.current = undefined;
+    setIsLoadingMore(false);
+    setHasMore(false);
     setLiveGifs([]);
 
     const query = term || CATEGORY_QUERY[activeCategory] || currentCategoryData.name;
@@ -91,26 +93,27 @@ export default function App() {
 
     const timer = window.setTimeout(async () => {
       try {
-        const result = await searchOnlineGifs(query, category, 30, 0);
+        const result = await searchOnlineGifs(query, category, 30, '0');
         if (controller.signal.aborted || requestId !== requestIdRef.current) return;
 
         const formatted = toDisplayGifs(result.results || [], currentCategoryData.name, term || activeCategory);
-        if (formatted.length) {
-          setLiveGifs(formatted);
-          setNextPos(result.next);
-          setHasMore(Boolean(result.next) && formatted.length >= 10);
-        } else {
+        if (!formatted.length) {
           setLiveGifs(fallbackList);
-          setNextPos(undefined);
+          nextPosRef.current = undefined;
           setHasMore(false);
+          return;
         }
+
+        setLiveGifs(formatted);
+        nextPosRef.current = result.next;
+        setHasMore(Boolean(result.next));
       } catch {
         if (controller.signal.aborted || requestId !== requestIdRef.current) return;
         setLiveGifs(fallbackList);
-        setNextPos(undefined);
+        nextPosRef.current = undefined;
         setHasMore(false);
       }
-    }, term ? 250 : 60);
+    }, term ? 280 : 80);
 
     return () => {
       controller.abort();
@@ -132,61 +135,77 @@ export default function App() {
     });
   }, [liveGifs, fallbackList]);
 
-  const showToast = (text: string) => {
+  const showToast = useCallback((text: string) => {
     setToastMessage(text);
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToastMessage(null), 2200);
-  };
+  }, []);
 
-  const handleLoadMoreGifs = async () => {
-    if (loadingMoreRef.current || isLoadingMore || !hasMore) return;
+  useEffect(() => () => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+  }, []);
+
+  const handleLoadMoreGifs = useCallback(async () => {
+    const cursor = nextPosRef.current;
+    if (loadingMoreRef.current || !hasMore || !cursor) return;
+    if (lastRequestedOffsetRef.current === cursor) return;
+
+    const requestId = requestIdRef.current;
+    const term = searchQuery.trim();
+    const query = term || CATEGORY_QUERY[activeCategory] || currentCategoryData.name;
+    const category = term ? undefined : currentCategoryData.id;
+    const offset = Math.max(Number.parseInt(cursor, 10) || 0, 0);
 
     loadingMoreRef.current = true;
+    lastRequestedOffsetRef.current = cursor;
     setIsLoadingMore(true);
 
     try {
-      const requestId = requestIdRef.current;
-      const term = searchQuery.trim();
-      const query = term || CATEGORY_QUERY[activeCategory] || currentCategoryData.name;
-      const category = term ? undefined : currentCategoryData.id;
-      const parsedOffset = Number.parseInt(nextPos || '', 10);
-      const offset = Number.isFinite(parsedOffset) ? Math.max(parsedOffset, liveGifs.length) : liveGifs.length;
-
-      const result = await searchOnlineGifs(query, category, 20, offset);
+      const result = await searchOnlineGifs(query, category, 20, String(offset));
       if (requestId !== requestIdRef.current) return;
 
       const incoming = toDisplayGifs(result.results || [], currentCategoryData.name, term || activeCategory);
-      const existingUrls = new Set(liveGifs.map((gif) => gif.url));
-      const existingIds = new Set(liveGifs.map((gif) => extractTenorGifId(gif.url)).filter(Boolean));
-
-      const uniqueIncoming = incoming.filter((gif) => {
-        const id = extractTenorGifId(gif.url);
-        if (existingUrls.has(gif.url)) return false;
-        if (id && existingIds.has(id)) return false;
-        existingUrls.add(gif.url);
-        if (id) existingIds.add(id);
-        return true;
-      });
-
-      if (uniqueIncoming.length) {
-        setLiveGifs((previous) => [...previous, ...uniqueIncoming]);
+      if (!incoming.length) {
+        nextPosRef.current = undefined;
+        setHasMore(false);
+        return;
       }
 
-      const reachedEnd = !result.next || uniqueIncoming.length === 0;
-      setNextPos(result.next);
-      setHasMore(!reachedEnd);
+      setLiveGifs((previous) => {
+        const existingUrls = new Set(previous.map((gif) => gif.url));
+        const existingIds = new Set(previous.map((gif) => extractTenorGifId(gif.url)).filter(Boolean));
+        const uniqueIncoming = incoming.filter((gif) => {
+          const id = extractTenorGifId(gif.url);
+          if (existingUrls.has(gif.url)) return false;
+          if (id && existingIds.has(id)) return false;
+          existingUrls.add(gif.url);
+          if (id) existingIds.add(id);
+          return true;
+        });
+        return uniqueIncoming.length ? [...previous, ...uniqueIncoming] : previous;
+      });
+
+      const next = result.next;
+      const nextNumber = next ? Number.parseInt(next, 10) : NaN;
+      if (!next || !Number.isFinite(nextNumber) || nextNumber <= offset) {
+        nextPosRef.current = undefined;
+        setHasMore(false);
+      } else {
+        nextPosRef.current = next;
+        setHasMore(true);
+      }
     } catch {
+      lastRequestedOffsetRef.current = undefined;
       showToast('Não foi possível carregar mais GIFs agora.');
     } finally {
       loadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  };
+  }, [activeCategory, currentCategoryData, hasMore, searchQuery, showToast]);
 
   return (
     <div className="min-h-screen bg-[#0e1621] text-[#f5f5f5] flex justify-center selection:bg-[#2481cc]/30">
       <AnimatePresence>{isAppLoading && <LoadingScreen isLoading={isAppLoading} />}</AnimatePresence>
-
       <div className="w-full max-w-md min-h-screen bg-[#0e1621] flex flex-col pb-8">
         <header className="pt-6 pb-2 px-4 flex items-center justify-between border-b border-[#1c2733]/70 mb-1">
           <div>
@@ -226,17 +245,14 @@ export default function App() {
           <p>
             Resultados podem apontar para fontes externas, incluindo{' '}
             <a href="https://tenor.com" target="_blank" rel="noopener noreferrer" className="text-[#2aabee] hover:underline font-bold inline-flex items-center gap-0.5">
-              <span>Tenor</span>
-              <ExternalLink className="w-2.5 h-2.5" />
-            </a>
-            .
+              <span>Tenor</span><ExternalLink className="w-2.5 h-2.5" />
+            </a>.
           </p>
           <button onClick={() => setIsDocsOpen(true)} className="text-[10px] text-[#2481cc] hover:underline font-semibold cursor-pointer">
             Ver documentação, termos e endpoints da API
           </button>
         </footer>
       </div>
-
       <DocumentationModal isOpen={isDocsOpen} onClose={() => setIsDocsOpen(false)} onShowToast={showToast} />
       <Toast message={toastMessage} />
     </div>
