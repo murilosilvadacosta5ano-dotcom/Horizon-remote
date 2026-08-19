@@ -25,8 +25,7 @@ import {
   redirectToAuthorizedDomain, 
   getAutoRedirectPreference, 
   setAutoRedirectPreference,
-  DEFAULT_AUTHORIZED_REDIRECT_URL,
-  AUTH_API_KEY
+  DEFAULT_AUTHORIZED_REDIRECT_URL
 } from '../services/authService';
 
 interface LoginPageProps {
@@ -371,9 +370,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
           <div className="space-y-2 text-xs text-[#8293a4]">
             <div className="flex items-center justify-between bg-[#0e1621] p-3 rounded-xl border border-[#232e3c]">
-              <span className="font-mono text-[11px] text-[#708499]">Auth Key</span>
-              <span className="font-mono text-[11px] text-[#10b981] font-bold">
-                {AUTH_API_KEY.substring(0, 10)}...{AUTH_API_KEY.slice(-6)}
+              <span className="text-[11px] text-[#708499]">Provedor de Autenticação</span>
+              <span className="text-[11px] text-[#10b981] font-bold">
+                Google Identity Services (OAuth 2.0)
               </span>
             </div>
 

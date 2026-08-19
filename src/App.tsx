@@ -8,7 +8,6 @@ import { DocumentationModal } from './components/DocumentationModal';
 import { DocumentationPage } from './components/DocumentationPage';
 import { ApiPortalPage } from './components/ApiPortalPage';
 import { GifDetailPage } from './components/GifDetailPage';
-import { RafaBanner } from './components/RafaBanner';
 import { LoadingScreen } from './components/LoadingScreen';
 import { UserProfileModal } from './components/UserProfileModal';
 import { LoginPage } from './components/LoginPage';
@@ -330,8 +329,10 @@ export default function App() {
         <UserProfileModal
           isOpen={isProfileModalOpen}
           onClose={() => setIsProfileModalOpen(false)}
+          currentUser={currentUser}
           onShowToast={showToast}
           onUserChange={setCurrentUser}
+          onNavigate={handleNavigate}
         />
       </>
     );
@@ -423,14 +424,6 @@ export default function App() {
           isSearching={isSearching}
         />
 
-        {/* Rafa das Figurinhas Interactive Mascot & Curated Packs */}
-        {!searchQuery.trim() && (
-          <RafaBanner
-            onSelectSpecial={(term) => setSearchQuery(term)}
-            onNavigateDocs={() => handleNavigate('/documentacao')}
-          />
-        )}
-
         {/* Clean Category Bar with Horizontal Scroll Only */}
         {!searchQuery.trim() && (
           <CategorySelector
@@ -498,8 +491,10 @@ export default function App() {
       <UserProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+        currentUser={currentUser}
         onShowToast={showToast}
         onUserChange={setCurrentUser}
+        onNavigate={handleNavigate}
       />
 
       {/* Floating Toast Notification */}
