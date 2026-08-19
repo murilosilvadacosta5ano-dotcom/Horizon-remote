@@ -38,9 +38,10 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({
     ? (window.location.origin.includes('kaise.space') ? 'https://www.kaise.space' : window.location.origin)
     : 'https://www.kaise.space';
 
-  const getApiEndpoint = `${domain}/api/gifs?key=${UNIVERSAL_KEY}&search=naruto&category=animes&limit=10`;
-  const postApiEndpoint = `${domain}/api/gifs/search`;
-  const categoriesEndpoint = `${domain}/api/categories`;
+  const v1SearchEndpoint = `${domain}/api/v1/search?q=naruto&category=animes&limit=10`;
+  const v1RandomEndpoint = `${domain}/api/v1/random?category=animes`;
+  const v1CategoriesEndpoint = `${domain}/api/v1/categories`;
+  const v1GifIdEndpoint = `${domain}/api/v1/gifs/mIirbFHFViY`;
 
   const handleCopy = (text: string, id: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -54,10 +55,10 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({
     setIsTesting(true);
     setTestResponse(null);
     try {
-      const res = await fetch(`/api/gifs?key=${UNIVERSAL_KEY}&search=naruto&category=animes&limit=3`);
+      const res = await fetch(`/api/v1/search?q=naruto&category=animes&limit=3`);
       const data = await res.json();
       setTestResponse(JSON.stringify(data, null, 2));
-      onShowToast('Endpoint testado com sucesso!');
+      onShowToast('Endpoint Kaise v1 testado com sucesso!');
     } catch (err: any) {
       setTestResponse(JSON.stringify({ error: err.message || 'Falha na requisição' }, null, 2));
     } finally {
@@ -210,34 +211,34 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({
             {/* 2. ENDPOINTS */}
             {activeTab === 'endpoints' && (
               <div className="space-y-3.5">
-                {/* GET /api/gifs */}
+                {/* GET /api/v1/search */}
                 <div className="bg-[#1c2733] p-3.5 rounded-2xl border border-[#253241] space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="px-2 py-0.5 rounded-md bg-[#2481cc] text-white font-mono font-bold text-[10px]">
-                      GET /api/gifs
+                      GET /api/v1/search
                     </span>
-                    <span className="text-[10px] text-[#34c759] font-bold">Principal (Online)</span>
+                    <span className="text-[10px] text-[#34c759] font-bold">Kaise v1 Core</span>
                   </div>
                   <p className="text-[11px] text-[#8293a4]">
-                    Busca GIFs por termo e categoria específica.
+                    Agrega e normaliza buscas por palavra-chave mantendo atribuição de fonte.
                   </p>
                   
                   <div className="bg-[#121922] p-2.5 rounded-xl space-y-1 text-[10px] font-mono text-[#8293a4]">
-                    <div><span className="text-[#2aabee]">search</span>: termo de busca (ex: naruto, travolta, gta)</div>
+                    <div><span className="text-[#2aabee]">q</span> ou <span className="text-[#2aabee]">search</span>: termo (ex: naruto, travolta, gta)</div>
                     <div><span className="text-[#2aabee]">category</span>: geral, memes, jogos, animes, desenhos, reacoes, filmes, series</div>
-                    <div><span className="text-[#2aabee]">limit</span>: número de resultados (padrão: 20)</div>
-                    <div><span className="text-[#2aabee]">key</span>: raphaelsboting</div>
+                    <div><span className="text-[#2aabee]">limit</span>: número de resultados (1 a 50, padrão: 20)</div>
+                    <div><span className="text-[#2aabee]">offset</span>: deslocamento de paginação</div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       readOnly
-                      value={getApiEndpoint}
+                      value={v1SearchEndpoint}
                       className="w-full px-2.5 py-1.5 bg-[#121922] rounded-xl font-mono text-[10px] text-[#2aabee] border-0 select-all"
                     />
                     <button
-                      onClick={() => handleCopy(getApiEndpoint, 'ep1', 'URL')}
+                      onClick={() => handleCopy(v1SearchEndpoint, 'ep1', 'URL v1 Search')}
                       className="p-1.5 rounded-lg bg-[#2481cc] text-white flex-shrink-0"
                     >
                       {copiedField === 'ep1' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -252,7 +253,7 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({
                       className="w-full py-2 bg-[#2481cc]/20 hover:bg-[#2481cc]/30 border border-[#2481cc]/40 rounded-xl text-xs font-bold text-[#2aabee] flex items-center justify-center gap-1.5 transition-colors"
                     >
                       <Play className="w-3.5 h-3.5" />
-                      <span>{isTesting ? 'Testando endpoint...' : 'Testar Resposta da API ao Vivo'}</span>
+                      <span>{isTesting ? 'Testando endpoint...' : 'Testar Resposta Kaise v1 ao Vivo'}</span>
                     </button>
 
                     {testResponse && (
@@ -263,26 +264,26 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({
                   </div>
                 </div>
 
-                {/* POST /api/gifs/search */}
+                {/* GET /api/v1/random */}
                 <div className="bg-[#1c2733] p-3.5 rounded-2xl border border-[#253241] space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="px-2 py-0.5 rounded-md bg-[#2aabee] text-[#0e1621] font-mono font-bold text-[10px]">
-                      POST /api/gifs/search
+                      GET /api/v1/random
                     </span>
-                    <span className="text-[10px] text-[#8293a4] font-bold">JSON Body</span>
+                    <span className="text-[10px] text-[#8293a4] font-bold">Random GIF</span>
                   </div>
                   <p className="text-[11px] text-[#8293a4]">
-                    Aceita corpo em JSON com <code className="text-[#2aabee]">{`{"search": "goku", "category": "animes"}`}</code>.
+                    Retorna GIF aleatório dentro de uma categoria específica.
                   </p>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       readOnly
-                      value={postApiEndpoint}
+                      value={v1RandomEndpoint}
                       className="w-full px-2.5 py-1.5 bg-[#121922] rounded-xl font-mono text-[10px] text-[#2aabee] border-0 select-all"
                     />
                     <button
-                      onClick={() => handleCopy(postApiEndpoint, 'ep2', 'URL POST')}
+                      onClick={() => handleCopy(v1RandomEndpoint, 'ep2', 'URL Random')}
                       className="p-1.5 rounded-lg bg-[#2481cc] text-white flex-shrink-0"
                     >
                       {copiedField === 'ep2' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -290,29 +291,56 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({
                   </div>
                 </div>
 
-                {/* GET /api/categories */}
+                {/* GET /api/v1/categories */}
                 <div className="bg-[#1c2733] p-3.5 rounded-2xl border border-[#253241] space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="px-2 py-0.5 rounded-md bg-[#161f2a] text-[#8293a4] font-mono font-bold text-[10px]">
-                      GET /api/categories
+                      GET /api/v1/categories
                     </span>
-                    <span className="text-[10px] text-[#8293a4] font-bold">Categorias</span>
+                    <span className="text-[10px] text-[#8293a4] font-bold">Categorias & Aliases</span>
                   </div>
                   <p className="text-[11px] text-[#8293a4]">
-                    Lista todas as 8 categorias oficiais do sistema.
+                    Lista categorias oficiais e tabela de aliases (ex: naruto -&gt; animes).
                   </p>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       readOnly
-                      value={categoriesEndpoint}
+                      value={v1CategoriesEndpoint}
                       className="w-full px-2.5 py-1.5 bg-[#121922] rounded-xl font-mono text-[10px] text-[#2aabee] border-0 select-all"
                     />
                     <button
-                      onClick={() => handleCopy(categoriesEndpoint, 'ep3', 'URL Categorias')}
+                      onClick={() => handleCopy(v1CategoriesEndpoint, 'ep3', 'URL Categorias')}
                       className="p-1.5 rounded-lg bg-[#2481cc] text-white flex-shrink-0"
                     >
                       {copiedField === 'ep3' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* GET /api/v1/gifs/:id */}
+                <div className="bg-[#1c2733] p-3.5 rounded-2xl border border-[#253241] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded-md bg-[#161f2a] text-[#8293a4] font-mono font-bold text-[10px]">
+                      GET /api/v1/gifs/:id
+                    </span>
+                    <span className="text-[10px] text-[#8293a4] font-bold">GIF por ID</span>
+                  </div>
+                  <p className="text-[11px] text-[#8293a4]">
+                    Detalhamento e metadados de um GIF específico por ID.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={v1GifIdEndpoint}
+                      className="w-full px-2.5 py-1.5 bg-[#121922] rounded-xl font-mono text-[10px] text-[#2aabee] border-0 select-all"
+                    />
+                    <button
+                      onClick={() => handleCopy(v1GifIdEndpoint, 'ep4', 'URL GIF por ID')}
+                      className="p-1.5 rounded-lg bg-[#2481cc] text-white flex-shrink-0"
+                    >
+                      {copiedField === 'ep4' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>
@@ -330,17 +358,17 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({
                   <div className="bg-[#101720] p-2.5 rounded-xl font-mono text-[10px] text-[#cbd5e1] overflow-x-auto">
                     <pre className="select-all">{`import requests
 
-url = "${domain}/api/gifs"
+url = "${domain}/api/v1/search"
 params = {
-    "key": "raphaelsboting",
-    "search": "naruto",
+    "q": "naruto",
     "category": "animes",
     "limit": 10
 }
 
 response = requests.get(url, params=params).json()
 gif_direto = response["gif_url"]
-print("Link do GIF:", gif_direto)`}</pre>
+provedor = response["results"][0]["source"]["provider"]
+print("Link do GIF:", gif_direto, "Provedor:", provedor)`}</pre>
                   </div>
                 </div>
 
@@ -350,7 +378,7 @@ print("Link do GIF:", gif_direto)`}</pre>
                     <span>Node.js / Discord.js</span>
                   </span>
                   <div className="bg-[#101720] p-2.5 rounded-xl font-mono text-[10px] text-[#cbd5e1] overflow-x-auto">
-                    <pre className="select-all">{`const res = await fetch("${domain}/api/gifs?key=raphaelsboting&search=naruto&category=animes");
+                    <pre className="select-all">{`const res = await fetch("${domain}/api/v1/search?q=naruto&category=animes");
 const data = await res.json();
 const gifUrl = data.gif_url;
 // Enviar gifUrl no canal do Discord ou Telegram`}</pre>

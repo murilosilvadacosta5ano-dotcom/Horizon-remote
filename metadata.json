@@ -1,6 +1,6 @@
 {
-  "name": "Raphael Bot - Comandos",
-  "description": "Central de documentação e teste interativo de comandos do bot Raphael no estilo Telegram escuro.",
+  "name": "Kaise GIF API & Figurinhas",
+  "description": "Plataforma e API pública de GIFs e Figurinhas animadas em HD com agregação multi-provedor, rotas v1 e documentação interativa.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

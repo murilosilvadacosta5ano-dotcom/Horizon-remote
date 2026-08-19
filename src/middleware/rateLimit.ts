@@ -8,7 +8,7 @@ interface Bucket {
 const buckets = new Map<string, Bucket>();
 
 const WINDOW_MS = 60_000;
-const DEFAULT_LIMIT = 60;
+const DEFAULT_LIMIT = 1000;
 const MAX_BUCKETS = 10_000;
 
 function getClientKey(req: Request): string {

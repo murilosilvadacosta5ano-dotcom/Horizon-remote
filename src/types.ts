@@ -31,6 +31,41 @@ export interface TenorResultItem {
   source?: GifSource;
 }
 
+export interface GifSource {
+  provider: string; // ex: 'tenor', 'giphy', 'kaise_local'
+  id: string;
+  url: string;
+  attribution: string;
+}
+
+export interface KaiseGifItem {
+  id: string;
+  title: string;
+  url: string;
+  preview: string;
+  width?: number;
+  height?: number;
+  category: string;
+  tags: string[];
+  source: GifSource;
+}
+
+export interface KaiseApiResponse {
+  success: boolean;
+  status: number;
+  query: string;
+  category: string;
+  gif_url?: string;
+  results: KaiseGifItem[];
+  pagination: {
+    limit: number;
+    offset: number;
+    next?: string;
+    total: number;
+  };
+  tenor_results?: TenorResultItem[]; // Para compatibilidade reversa Tenor API
+}
+
 export interface GifCategory {
   id: string;
   name: string;
@@ -53,5 +88,25 @@ export interface GifSearchResult {
   fromCache: boolean;
   categoryMatched: string;
   results: TenorResultItem[];
+  kaiseResults?: KaiseGifItem[];
   next?: string;
+}
+
+export interface SavedFavoriteGif {
+  id: string;
+  title: string;
+  url: string;
+  category?: string;
+  savedAt: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  avatar: string;
+  birthDate?: string; // Formato: AAAA-MM-DD
+  provider: 'google' | 'guest';
+  createdAt: string;
+  favorites: SavedFavoriteGif[];
 }

@@ -1,103 +1,139 @@
-import { scrapeGifsFromSite, generateTenorSlug, getRandomScrapedGif } from './tenorScraper';
-import { detectCategoryFromQuery, GIF_CATEGORIES } from '../data/categoriesData';
-import { GifSearchResult, TenorResultItem } from '../types';
+import { scrapeGifsFromSite, getRandomScrapedGif, generateTenorSlug } from "./tenorScraper";
+import { detectCategoryFromQuery, GIF_CATEGORIES } from "../data/categoriesData";
+import { GifSearchResult, TenorResultItem } from "../types";
 
 export { generateTenorSlug as getTenorSlug };
 
-const API_TIMEOUT_MS = 7000;
-const MAX_RESULTS = 40;
+/**
+ * Puxa GIFs: no navegador consulta a API (/api/v1/search); no backend Node faz a agregação direta
+ */
+export async function searchOnlineGifs(
+  rawQuery: string,
+  forcedCategory?: string,
+  limit: number = 30,
+  pos?: string
+): Promise<GifSearchResult> {
+  const cleanQuery = (rawQuery || "geral").trim();
+  const matchedCategory = forcedCategory || detectCategoryFromQuery(cleanQuery);
+  const slug = generateTenorSlug(cleanQuery);
+  const tenorSearchWebUrl = `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`;
 
-function createAbortSignal(timeoutMs: number) {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
-  return { controller, timeout };
-}
-
-function normalizeResult(data: any, fallbackCategory: string, query: string, offset: number, requestedLimit: number): GifSearchResult | null {
-  if (!data?.success || !Array.isArray(data.results)) return null;
-  const results = data.results as TenorResultItem[];
-  const allGifs = results.map((item) => item?.media?.[0]?.gif?.url || item?.url).filter(Boolean) as string[];
-  if (!allGifs.length) return null;
-  const rawNext = data.next ?? data.next_offset;
-  const parsedNext = typeof rawNext === 'number' ? rawNext : Number.parseInt(String(rawNext ?? ''), 10);
-  const candidateNext = Number.isFinite(parsedNext) && parsedNext > offset ? String(parsedNext) : undefined;
-  const fallbackNext = results.length >= requestedLimit ? String(offset + results.length) : undefined;
-  return {
-    gifUrl: allGifs[0], allGifs, results,
-    searchUrl: data.search_url || `https://kaise.space/?search=${encodeURIComponent(query)}`,
-    tenorSearchUrl: data.tenor_search_url || `https://tenor.com/search/${encodeURIComponent(generateTenorSlug(query))}`,
-    totalFound: Number(data.total_found || data.total || results.length),
-    fromCache: Boolean(data.from_cache), categoryMatched: data.category || fallbackCategory,
-    next: candidateNext || fallbackNext,
-  };
-}
-
-export async function searchOnlineGifs(rawQuery: string, forcedCategory?: string, limit = 30, pos = '0'): Promise<GifSearchResult> {
-  const query = (rawQuery || 'geral').trim() || 'geral';
-  const category = forcedCategory || detectCategoryFromQuery(query);
-  const offset = Math.max(Number.parseInt(pos, 10) || 0, 0);
-  const safeLimit = Math.min(Math.max(Number(limit) || 30, 1), MAX_RESULTS);
-
-  if (typeof window !== 'undefined') {
+  // Se estiver rodando no navegador do cliente (React)
+  if (typeof window !== "undefined") {
     try {
-      const { controller, timeout } = createAbortSignal(API_TIMEOUT_MS);
-      const params = new URLSearchParams({ search: query, q: query, limit: String(safeLimit), offset: String(offset), pos: String(offset) });
-      if (forcedCategory) params.set('category', forcedCategory);
-      const response = await fetch(`/api/gifs?${params.toString()}`, { signal: controller.signal, headers: { Accept: 'application/json' }, cache: 'no-store' });
-      window.clearTimeout(timeout);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      const params = new URLSearchParams({
+        q: cleanQuery,
+        limit: limit.toString(),
+      });
+      if (forcedCategory) params.append("category", forcedCategory);
+      if (pos && pos !== "0") {
+        params.append("pos", pos);
+        params.append("offset", pos);
+      }
+
+      const response = await fetch(`/api/v1/search?${params.toString()}`, {
+        signal: controller.signal,
+        headers: {
+          Accept: "application/json",
+        },
+      });
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
-        const normalized = normalizeResult(data, category, query, offset, safeLimit);
-        if (normalized) return normalized;
+        const resultsList = data.results || data.tenor_results || [];
+        if (resultsList.length > 0) {
+          return {
+            gifUrl: data.gif_url || resultsList[0]?.url || resultsList[0]?.media?.[0]?.gif?.url,
+            allGifs: resultsList.map((r: any) => r.url || r.media?.[0]?.gif?.url),
+            results: data.tenor_results || resultsList,
+            kaiseResults: data.results,
+            searchUrl: tenorSearchWebUrl,
+            tenorSearchUrl: tenorSearchWebUrl,
+            totalFound: data.pagination?.total || data.total || resultsList.length,
+            fromCache: Boolean(data.from_cache),
+            categoryMatched: data.category || matchedCategory,
+            next: data.pagination?.next || data.next || `${resultsList.length}`,
+          };
+        }
       }
     } catch {
-      // Local catalog keeps the gallery usable when the API is unavailable.
+      // Fallback local seguro no navegador
     }
-    return createLocalCategoryResult(query, category, offset, safeLimit);
+
+    return createLocalCategoryResult(cleanQuery, matchedCategory, tenorSearchWebUrl, pos);
   }
 
-  return scrapeGifsFromSite(query, forcedCategory, safeLimit, String(offset));
+  // Se estiver rodando no servidor Node.js (Express backend)
+  return await scrapeGifsFromSite(cleanQuery, forcedCategory, limit, pos);
 }
 
 export async function getRandomGif(category?: string) {
-  if (typeof window !== 'undefined') {
-    try {
-      const params = new URLSearchParams();
-      if (category) params.set('category', category);
-      const { controller, timeout } = createAbortSignal(API_TIMEOUT_MS);
-      const response = await fetch(`/api/v1/random?${params.toString()}`, { signal: controller.signal, headers: { Accept: 'application/json' }, cache: 'no-store' });
-      window.clearTimeout(timeout);
-      if (response.ok) {
-        const data = await response.json();
-        if (data?.success && data?.result) return data.result;
-      }
-    } catch {
-      // Fall back locally.
-    }
+  if (typeof window === "undefined") {
+    return getRandomScrapedGif(category);
   }
-  return getRandomScrapedGif(category);
+
+  const params = new URLSearchParams();
+  if (category) {
+    params.set("category", category);
+  }
+
+  const response = await fetch(`/api/v1/random?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error("Falha ao buscar GIF aleatório.");
+  }
+  const data = await response.json();
+  return data.result || data.results?.[0];
 }
 
-function createLocalCategoryResult(query: string, category: string, offset: number, limit: number): GifSearchResult {
-  const categoryObject = GIF_CATEGORIES.find((item) => item.id === category) || GIF_CATEGORIES[0];
-  const source = categoryObject?.gifs || [];
-  if (!source.length || offset >= source.length) {
-    return { gifUrl: '', allGifs: [], results: [], searchUrl: `https://www.kaise.space/?search=${encodeURIComponent(query)}`, tenorSearchUrl: `https://tenor.com/search/${encodeURIComponent(generateTenorSlug(query))}`, totalFound: source.length, fromCache: false, categoryMatched: category, next: undefined };
-  }
-  const ordered = source.slice(offset, Math.min(offset + limit, source.length));
-  const results: TenorResultItem[] = ordered.map((gif, index) => ({
-    id: `local-${gif.id}-${offset}-${index}`, title: gif.title, content_description: gif.title,
-    itemurl: 'https://www.kaise.space/', url: gif.url, hasaudio: false,
-    media: [{ gif: { url: gif.url, dims: [498, 278] }, tinygif: { url: gif.url, dims: [220, 122] } }],
-    tags: gif.tags, source: { provider: 'kaise-local', url: 'https://www.kaise.space/' },
+function createLocalCategoryResult(
+  query: string,
+  category: string,
+  tenorUrl: string,
+  pos?: string
+): GifSearchResult {
+  const catObj = GIF_CATEGORIES.find(c => c.id === category) || GIF_CATEGORIES[0];
+  const offset = parseInt(pos || "0", 10) || 0;
+  
+  // Rotação dos GIFs locais se o usuário rolar repetidamente
+  const startIndex = offset % catObj.gifs.length;
+  const orderedGifs = [
+    ...catObj.gifs.slice(startIndex),
+    ...catObj.gifs.slice(0, startIndex)
+  ];
+
+  const results: TenorResultItem[] = orderedGifs.map((g, idx) => ({
+    id: `local-${g.id}-${idx}`,
+    title: g.title,
+    content_description: g.title,
+    itemurl: tenorUrl,
+    url: g.url,
+    hasaudio: false,
+    media: [
+      {
+        gif: { url: g.url, dims: [498, 278], duration: 0, size: 0 },
+        tinygif: { url: g.url, dims: [220, 122], duration: 0, size: 0 },
+        mp4: { url: "" },
+      },
+    ],
+    tags: g.tags,
   }));
-  const allGifs = results.map((item) => item.url);
-  const nextOffset = offset + allGifs.length;
+
+  const allGifs = results.map(r => r.url);
+  const selectedIdx = Math.floor(Math.random() * allGifs.length);
+
   return {
-    gifUrl: allGifs[0] || '', allGifs, results,
-    searchUrl: `https://www.kaise.space/?search=${encodeURIComponent(query)}`,
-    tenorSearchUrl: `https://tenor.com/search/${encodeURIComponent(generateTenorSlug(query))}`,
-    totalFound: source.length, fromCache: false, categoryMatched: category,
-    next: nextOffset < source.length ? String(nextOffset) : undefined,
+    gifUrl: allGifs[selectedIdx] || allGifs[0],
+    allGifs,
+    results,
+    searchUrl: tenorUrl,
+    tenorSearchUrl: tenorUrl,
+    totalFound: allGifs.length,
+    fromCache: false,
+    categoryMatched: category,
+    next: `${offset + results.length}`,
   };
 }

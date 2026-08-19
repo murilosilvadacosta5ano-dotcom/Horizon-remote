@@ -1,4 +1,4 @@
-import { detectCategoryFromQuery, GIF_CATEGORIES } from "../data/categoriesData";
+import { detectCategoryFromQuery, getCategoryGifs, GIF_CATEGORIES } from "../data/categoriesData";
 import { GifSearchResult, TenorResultItem } from "../types";
 
 interface ScrapedCacheEntry {
@@ -6,25 +6,23 @@ interface ScrapedCacheEntry {
   results: TenorResultItem[];
   lastUsedIndex: number;
   timestamp: number;
-  provider: "tenor" | "kaise-local";
+  tenorUrl: string;
   category: string;
-  query: string;
 }
 
 const SCRAPE_CACHE = new Map<string, ScrapedCacheEntry>();
-const CACHE_TTL = 1000 * 60 * 30;
+const CACHE_TTL = 1000 * 60 * 30; // 30 minutos
 const MAX_CACHE_ENTRIES = 300;
-const PROVIDER_TIMEOUT = 5000;
 
 export function extractTenorGifId(url: string): string {
-  if (!url) return "";
-
-  const mediaMatch = url.match(/\/([a-zA-Z0-9_-]+)AAA[A-Z0-9_-]*/i);
-  if (mediaMatch?.[1]) return mediaMatch[1];
-
-  const parts = url.split("/");
-  const last = parts[parts.length - 1] || "";
-  return last.replace(/\.(gif|webp|mp4)$/i, "") || url;
+  if (!url) return '';
+  const idMatch = url.match(/\/([a-zA-Z0-9_-]+)AAAA[a-zA-Z0-9_]/i);
+  if (idMatch && idMatch[1]) {
+    return idMatch[1].replace(/^m\//, '').replace(/^m_/, '');
+  }
+  const parts = url.split('/');
+  const last = parts[parts.length - 1] || '';
+  return last.split('.')[0] || url;
 }
 
 export function generateTenorSlug(query: string): string {
@@ -34,320 +32,380 @@ export function generateTenorSlug(query: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-
-  return clean.endsWith("-gifs") ? clean : `${clean || "geral"}-gifs`;
+    .replace(/\s+/g, "-");
+  return clean.endsWith("-gifs") ? clean : `${clean}-gifs`;
 }
 
-function formatCleanTitle(
-  rawTitle: string | undefined,
-  query: string,
-  url: string
-): string {
-  if (
-    rawTitle &&
-    rawTitle.trim() &&
-    !rawTitle.includes("#") &&
-    rawTitle.length > 2
-  ) {
+function formatCleanTitle(rawTitle: string | undefined, query: string, url: string): string {
+  if (rawTitle && rawTitle.trim() && !rawTitle.includes('#') && rawTitle.length > 2) {
     return rawTitle
-      .replace(/GIF/gi, "")
-      .replace(/[-_]/g, " ")
+      .replace(/GIF/gi, '')
+      .replace(/[-_]/g, ' ')
       .trim()
-      .split(/\s+/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(" ")
+      .split(' ')
+      .filter(w => w.length > 0)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ')
       .substring(0, 50);
   }
 
   try {
-    const lastPart = url.split("/").pop() || "";
+    const parts = url.split('/');
+    const lastPart = parts[parts.length - 1] || '';
     const slugName = lastPart
-      .replace(/\.(gif|webp)$/i, "")
-      .replace(/AAA[A-Za-z0-9_-]*/i, "")
-      .replace(/[-_]/g, " ")
+      .replace('.gif', '')
+      .replace(/AAAA[a-zA-Z0-9_]+/i, '')
+      .replace(/[-_]/g, ' ')
       .trim();
-
     if (slugName && slugName.length > 2 && !/^[0-9a-f]+$/i.test(slugName)) {
       return slugName
-        .split(/\s+/)
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(" ")
+        .split(' ')
+        .filter(w => w.length > 0)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ')
         .substring(0, 45);
     }
   } catch {
-    // Fallback para a query.
+    // Ignora
   }
 
   return query
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ")
+    .split(' ')
+    .filter(w => w.length > 0)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
     .substring(0, 45);
 }
 
-function createTenorResult(
-  url: string,
-  query: string,
-  category: string,
-  index: number
-): TenorResultItem {
-  const id = extractTenorGifId(url);
-  const title = formatCleanTitle(undefined, query, url);
-  const sourceUrl = `https://tenor.com/pt-BR/search/${encodeURIComponent(
-    generateTenorSlug(query)
-  )}`;
+/**
+ * 1. Busca no Tenor V1 Public API
+ */
+async function fetchFromTenorPublicApi(
+  query: string, 
+  limit: number, 
+  pos?: string
+): Promise<{ items: TenorResultItem[]; nextPos?: string }> {
+  try {
+    const apiKey = 'LIVDSRZULELA';
+    const params = new URLSearchParams({
+      q: query,
+      key: apiKey,
+      limit: Math.min(limit, 50).toString(),
+      locale: 'pt_BR',
+      media_filter: 'minimal',
+    });
+    if (pos && pos !== "0") {
+      params.append('pos', pos);
+    }
 
-  return {
-    id: `tenor-${id || index}`,
-    title,
-    content_description: title,
-    itemurl: sourceUrl,
-    url,
-    hasaudio: false,
-    media: [
-      {
-        gif: { url, dims: [498, 278] },
-        tinygif: { url, dims: [220, 122] },
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const res = await fetch(`https://g.tenor.com/v1/search?${params.toString()}`, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
       },
-    ],
-    tags: [query, category],
-    source: {
-      provider: "tenor",
-      url: sourceUrl,
-    },
-  };
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.results && Array.isArray(data.results) && data.results.length > 0) {
+        const mappedItems: TenorResultItem[] = data.results.map((r: any) => {
+          const gifObj = r.media?.[0]?.gif || r.media?.[0]?.mediumgif || {};
+          const tinyObj = r.media?.[0]?.tinygif || gifObj;
+          const mp4Obj = r.media?.[0]?.mp4 || {};
+          const gifUrl = gifObj.url || r.url || '';
+          const cleanTitle = formatCleanTitle(r.title || r.content_description, query, gifUrl);
+
+          return {
+            id: r.id ? `tenor-${r.id}` : `tenor-${extractTenorGifId(gifUrl)}`,
+            title: cleanTitle,
+            content_description: cleanTitle,
+            itemurl: r.itemurl || `https://tenor.com/search/${encodeURIComponent(query)}`,
+            url: gifUrl,
+            hasaudio: Boolean(r.hasaudio),
+            media: [
+              {
+                gif: { url: gifUrl, dims: gifObj.dims || [498, 278], duration: 0, size: 0 },
+                tinygif: { url: tinyObj.url || gifUrl, dims: tinyObj.dims || [220, 122], duration: 0, size: 0 },
+                mp4: { url: mp4Obj.url || '' },
+              },
+            ],
+            tags: r.tags || [query],
+          };
+        });
+
+        return {
+          items: mappedItems,
+          nextPos: data.next ? String(data.next) : undefined
+        };
+      }
+    }
+  } catch {
+    // Failover silencioso
+  }
+  return { items: [] };
 }
 
-function extractGifsFromTenorHtml(
-  html: string,
-  query: string,
-  category: string
-): TenorResultItem[] {
+/**
+ * 2. Extração via Regex no HTML do Tenor
+ */
+function extractGifsFromTenorHtml(html: string, query: string, category: string): TenorResultItem[] {
   const items: TenorResultItem[] = [];
-  const seen = new Set<string>();
+  const seenGifIds = new Set<string>();
 
-  // Extrai somente URLs GIF do domínio de mídia do Tenor.
-  const mediaRegex =
-    /https?:\\?\/\\?\/(?:media[0-9]*|c)\.tenor\.com\\?\/[^"'<>\\s\\]+?\.gif/gi;
-
+  const mediaRegex = /https:\/\/(?:media[0-9]*|c)\.tenor\.com\/[a-zA-Z0-9_\-\/]+(?:\/)?(?:[a-zA-Z0-9_\-]+)?\.gif/gi;
   const matches = html.match(mediaRegex) || [];
 
   for (const rawUrl of matches) {
-    const cleanUrl = rawUrl
-      .replace(/\\u002F/g, "/")
-      .replace(/\\\//g, "/")
-      .replace(/\\/g, "");
-
-    if (
-      !cleanUrl.startsWith("https://") ||
-      !cleanUrl.includes(".tenor.com/") ||
-      /(?:badge|logo|icon|avatar)/i.test(cleanUrl)
-    ) {
+    const cleanUrl = rawUrl.replace(/\\u002F/g, '/').replace(/\\/g, '');
+    if (cleanUrl.includes('badge') || cleanUrl.includes('logo') || cleanUrl.includes('icon') || cleanUrl.includes('avatar')) {
       continue;
     }
 
     const gifId = extractTenorGifId(cleanUrl);
-    if (!gifId || seen.has(gifId)) continue;
-
-    seen.add(gifId);
-    items.push(createTenorResult(cleanUrl, query, category, items.length));
-
-    if (items.length >= 100) break;
+    if (!seenGifIds.has(gifId)) {
+      seenGifIds.add(gifId);
+      const title = formatCleanTitle(undefined, query, cleanUrl);
+      items.push({
+        id: `tenor-${gifId}`,
+        title,
+        content_description: title,
+        itemurl: `https://tenor.com/search/${encodeURIComponent(query)}`,
+        url: cleanUrl,
+        hasaudio: false,
+        media: [
+          {
+            gif: { url: cleanUrl, dims: [498, 278], duration: 0, size: 0 },
+            tinygif: { url: cleanUrl, dims: [220, 122], duration: 0, size: 0 },
+            mp4: { url: '' }
+          }
+        ],
+        tags: [query, category]
+      });
+    }
   }
 
   return items;
 }
 
-function localFallback(
-  query: string,
-  category: string,
-  limit: number,
-  offset: number
-): TenorResultItem[] {
-  const categoryData =
-    GIF_CATEGORIES.find((item) => item.id === category) || GIF_CATEGORIES[0];
-
-  if (!categoryData || categoryData.gifs.length === 0) return [];
-
-  const start = offset % categoryData.gifs.length;
-  const ordered = [
-    ...categoryData.gifs.slice(start),
-    ...categoryData.gifs.slice(0, start),
-  ].slice(0, limit);
-
-  return ordered.map((gif, index) => ({
-    id: `local-${gif.id}-${offset}-${index}`,
-    title: gif.title,
-    content_description: gif.title,
-    itemurl: "https://kaise.space/",
-    url: gif.url,
-    hasaudio: false,
-    media: [
-      {
-        gif: { url: gif.url, dims: [498, 278] },
-        tinygif: { url: gif.url, dims: [220, 122] },
-      },
-    ],
-    tags: [...gif.tags, query].filter(Boolean),
-    source: {
-      provider: "kaise-local",
-      url: "https://kaise.space/",
-    },
-  }));
-}
-
-function setCache(key: string, entry: ScrapedCacheEntry) {
-  if (SCRAPE_CACHE.size >= MAX_CACHE_ENTRIES && !SCRAPE_CACHE.has(key)) {
-    const oldest = SCRAPE_CACHE.keys().next().value;
-    if (oldest) SCRAPE_CACHE.delete(oldest);
-  }
-
-  SCRAPE_CACHE.set(key, entry);
-}
-
 export async function scrapeGifsFromSite(
   rawQuery: string,
   forcedCategory?: string,
-  limit = 30,
-  pos = "0"
+  limit: number = 30,
+  pos?: string
 ): Promise<GifSearchResult> {
-  const query = (rawQuery || "geral").trim() || "geral";
-  const offset = Math.max(parseInt(pos || "0", 10) || 0, 0);
-  const category = forcedCategory || detectCategoryFromQuery(query);
-  const cacheKey = `search:${query.toLowerCase()}:${category}:${offset}:${limit}`;
-  const now = Date.now();
-  const searchUrl = `https://tenor.com/pt-BR/search/${encodeURIComponent(
-    generateTenorSlug(query)
-  )}`;
+  const cleanQuery = (rawQuery || "geral").trim();
+  const isDirectSearch = Boolean(rawQuery && rawQuery.trim() && rawQuery.trim().toLowerCase() !== "geral");
+  
+  const matchedCategory = forcedCategory || (isDirectSearch ? 'geral' : detectCategoryFromQuery(cleanQuery));
+  const pageOffset = parseInt(pos || "0", 10) || 0;
+  const cacheKey = `scrape:${cleanQuery.toLowerCase()}:${pageOffset}`;
 
+  const slug = generateTenorSlug(cleanQuery);
+  const tenorSearchWebUrl = `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`;
+
+  // 1. Cache
   const cached = SCRAPE_CACHE.get(cacheKey);
-  if (
-    cached &&
-    now - cached.timestamp < CACHE_TTL &&
-    cached.results.length > 0
-  ) {
-    cached.lastUsedIndex =
-      (cached.lastUsedIndex + 1) % cached.results.length;
+  const now = Date.now();
 
+  if (cached && now - cached.timestamp < CACHE_TTL && cached.gifs.length > 0) {
+    cached.lastUsedIndex = (cached.lastUsedIndex + 1) % cached.gifs.length;
     return {
       gifUrl: cached.gifs[cached.lastUsedIndex],
       allGifs: cached.gifs,
       results: cached.results,
-      searchUrl,
-      tenorSearchUrl: searchUrl,
-      totalFound: cached.results.length,
+      searchUrl: tenorSearchWebUrl,
+      tenorSearchUrl: tenorSearchWebUrl,
+      totalFound: cached.gifs.length,
       fromCache: true,
-      categoryMatched: cached.category,
-      next: String(offset + cached.results.length),
+      categoryMatched: matchedCategory,
+      next: `${pageOffset + cached.results.length}`
     };
   }
 
-  let extracted: TenorResultItem[] = [];
+  let extractedItems: TenorResultItem[] = [];
+  let nextPosToken: string | undefined = undefined;
 
-  const urls = [
-    searchUrl,
-    `https://tenor.com/search/${encodeURIComponent(generateTenorSlug(query))}`,
-  ];
+  // Tentar 1: API Pública
+  const publicApiRes = await fetchFromTenorPublicApi(cleanQuery, limit * 2, pos);
+  extractedItems = publicApiRes.items;
+  nextPosToken = publicApiRes.nextPos;
 
-  for (const url of urls) {
-    if (extracted.length >= 100) break;
-
+  // Tentar 2: Scraping
+  if (extractedItems.length === 0) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(
-        () => controller.abort(),
-        PROVIDER_TIMEOUT
-      );
+      const urlsToScrape = [
+        `https://tenor.com/pt-BR/search/${encodeURIComponent(slug)}`,
+        `https://tenor.com/search/${encodeURIComponent(slug)}`
+      ];
 
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          "User-Agent": "Kaise-GIF-API/1.0",
-          Accept: "text/html,application/xhtml+xml",
-          "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-        },
-      });
+      for (const url of urlsToScrape) {
+        if (extractedItems.length >= 36) break;
 
-      clearTimeout(timeoutId);
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      if (!response.ok) continue;
+          const response = await fetch(url, {
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            }
+          });
+          clearTimeout(timeoutId);
 
-      const html = await response.text();
-      extracted = [...extracted, ...extractGifsFromTenorHtml(html, query, category)];
+          if (response.ok) {
+            const html = await response.text();
+            const found = extractGifsFromTenorHtml(html, cleanQuery, matchedCategory);
+            if (found.length > 0) {
+              extractedItems = [...extractedItems, ...found];
+            }
+          }
+        } catch {
+          // Ignora
+        }
+      }
     } catch {
-      // Um provider indisponível não deve derrubar a API inteira.
+      // Ignora
     }
   }
 
-  const unique = new Map<string, TenorResultItem>();
-  for (const item of extracted) {
-    const url = item.media?.[0]?.gif?.url || item.url;
-    const id = extractTenorGifId(url);
-    if (id && !unique.has(id)) unique.set(id, item);
+  // Deduplicação estrita baseada em ID do Tenor e URL limpa
+  const uniqueSeenIds = new Set<string>();
+  const uniqueSeenUrls = new Set<string>();
+  const filteredItems: TenorResultItem[] = [];
+  for (const item of extractedItems) {
+    const url = item.media[0]?.gif?.url || item.url;
+    const gifId = extractTenorGifId(url);
+    if (url && !uniqueSeenUrls.has(url) && (!gifId || !uniqueSeenIds.has(gifId))) {
+      uniqueSeenUrls.add(url);
+      if (gifId) uniqueSeenIds.add(gifId);
+      filteredItems.push(item);
+    }
   }
 
-  let results = Array.from(unique.values()).slice(offset, offset + limit);
-
-  if (results.length === 0) {
-    results = localFallback(query, category, limit, offset);
+  // Paginação / Fatiamento dos resultados
+  let finalResults: TenorResultItem[] = [];
+  if (filteredItems.length > 0) {
+    // Se veio da API direta com token pos, pega os primeiros 'limit' itens
+    if (nextPosToken) {
+      finalResults = filteredItems.slice(0, limit);
+    } else if (pageOffset > 0) {
+      finalResults = filteredItems.slice(pageOffset, pageOffset + limit);
+    } else {
+      finalResults = filteredItems.slice(0, limit);
+    }
   }
 
-  if (results.length === 0) {
-    throw new Error("No GIFs found");
+  let allGifUrls = finalResults.map(r => r.media[0]?.gif?.url || r.url);
+
+  // Fallback 3: local (somente se nada foi retornado e não é rolagem avançada)
+  if (finalResults.length === 0 && (!pos || pos === "0")) {
+    const catObj = GIF_CATEGORIES.find(c => c.id === matchedCategory) || GIF_CATEGORIES[0];
+    finalResults = catObj.gifs.slice(0, limit).map((g, idx) => ({
+      id: `${g.id}-${idx}`,
+      title: g.title,
+      content_description: g.title,
+      itemurl: tenorSearchWebUrl,
+      url: g.url,
+      hasaudio: false,
+      media: [
+        {
+          gif: { url: g.url, dims: [498, 278], duration: 0, size: 0 },
+          tinygif: { url: g.url, dims: [220, 122], duration: 0, size: 0 },
+          mp4: { url: '' }
+        }
+      ],
+      tags: g.tags
+    }));
+    allGifUrls = finalResults.map(r => r.url);
   }
 
-  const allGifs = results.map(
-    (item) => item.media?.[0]?.gif?.url || item.url
-  );
-  const selectedIndex = Math.floor(Math.random() * allGifs.length);
+  if (SCRAPE_CACHE.size >= MAX_CACHE_ENTRIES) {
+    const oldest = SCRAPE_CACHE.keys().next().value;
+    if (oldest) SCRAPE_CACHE.delete(oldest);
+  }
 
-  const provider = results.every(
-    (item) => item.source?.provider === "kaise-local"
-  )
-    ? "kaise-local"
-    : "tenor";
+  const selectedIdx = Math.floor(Math.random() * (allGifUrls.length || 1));
+  const selectedGif = allGifUrls[selectedIdx] || allGifUrls[0];
+  const nextToken = nextPosToken || (pageOffset + finalResults.length).toString();
 
-  setCache(cacheKey, {
-    gifs: allGifs,
-    results,
-    lastUsedIndex: selectedIndex,
+  // Gerar o formato padronizado Kaise API
+  const kaiseResults = finalResults.map((r) => {
+    const mainGif = r.media[0]?.gif;
+    const tinyGif = r.media[0]?.tinygif;
+    const gifUrl = mainGif?.url || r.url;
+    const previewUrl = tinyGif?.url || gifUrl;
+    const rawId = extractTenorGifId(gifUrl);
+
+    return {
+      id: `kaise_${rawId || Math.random().toString(36).substring(2, 8)}`,
+      title: r.title || 'GIF',
+      url: gifUrl,
+      preview: previewUrl,
+      width: mainGif?.dims?.[0] || 498,
+      height: mainGif?.dims?.[1] || 278,
+      category: matchedCategory,
+      tags: r.tags || [cleanQuery],
+      source: {
+        provider: 'tenor',
+        id: rawId,
+        url: r.itemurl || `https://tenor.com/view/${rawId}`,
+        attribution: 'Tenor'
+      }
+    };
+  });
+
+  SCRAPE_CACHE.set(cacheKey, {
+    gifs: allGifUrls,
+    results: finalResults,
+    lastUsedIndex: selectedIdx,
     timestamp: now,
-    provider,
-    category,
-    query,
+    tenorUrl: tenorSearchWebUrl,
+    category: matchedCategory
   });
 
   return {
-    gifUrl: allGifs[selectedIndex] || allGifs[0],
-    allGifs,
-    results,
-    searchUrl,
-    tenorSearchUrl: searchUrl,
-    totalFound: results.length,
+    gifUrl: selectedGif,
+    allGifs: allGifUrls,
+    results: finalResults,
+    kaiseResults,
+    searchUrl: tenorSearchWebUrl,
+    tenorSearchUrl: tenorSearchWebUrl,
+    totalFound: allGifUrls.length,
     fromCache: false,
-    categoryMatched: category,
-    next: String(offset + results.length),
+    categoryMatched: matchedCategory,
+    next: nextToken
   };
 }
 
 export async function getRandomScrapedGif(category?: string) {
   const query = category || "geral";
   const result = await scrapeGifsFromSite(query, category, 30, "0");
+  if (!result.results || result.results.length === 0) {
+    throw new Error("Nenhum GIF encontrado para seleção aleatória.");
+  }
   const index = Math.floor(Math.random() * result.results.length);
-  const item = result.results[index];
-  const url = item.media?.[0]?.gif?.url || item.url;
+  const gif = result.results[index];
+  const url = gif.media?.[0]?.gif?.url || gif.url;
+  const isTenor = gif.id ? gif.id.startsWith("tenor-") : true;
 
   return {
-    id: item.id,
+    id: gif.id || `kaise-random-${Math.random().toString(36).substring(2, 8)}`,
     url,
-    title: item.title,
+    preview: gif.media?.[0]?.tinygif?.url || url,
+    title: gif.title || "Random GIF",
     category: result.categoryMatched,
-    source: item.source || {
-      provider: "kaise",
-      url: result.searchUrl,
-    },
+    source: {
+      provider: isTenor ? "tenor" : "kaise-local",
+      url: gif.itemurl || url,
+      attribution: isTenor ? "Tenor" : "Kaise Local Library"
+    }
   };
 }
+

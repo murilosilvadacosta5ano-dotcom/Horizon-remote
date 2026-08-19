@@ -1,11 +1,20 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "api/gifs.ts": {
-      "maxDuration": 10
+  "rewrites": [
+    {
+      "source": "/api/gifs",
+      "destination": "/api/gifs"
     },
-    "api/health.ts": {
-      "maxDuration": 5
+    {
+      "source": "/api/categories",
+      "destination": "/api/categories"
+    },
+    {
+      "source": "/v1/search",
+      "destination": "/api/gifs"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
-  }
+  ]
 }
