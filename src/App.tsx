@@ -1,48 +1,60 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AnimatePresence } from 'motion/react';
+import { 
+  Server, 
+  BookOpen, 
+  ExternalLink, 
+  User, 
+  Zap, 
+  Lock, 
+  Sparkles,
+  Settings,
+  ShieldAlert,
+  Heart
+} from 'lucide-react';
+import { GIF_CATEGORIES } from './data/categoriesData';
 import { SearchBar } from './components/SearchBar';
-import { Toast } from './components/Toast';
 import { CategorySelector } from './components/CategorySelector';
 import { GifGallery, DisplayGif } from './components/GifGallery';
 import { DocumentationModal } from './components/DocumentationModal';
 import { DocumentationPage } from './components/DocumentationPage';
 import { ApiPortalPage } from './components/ApiPortalPage';
 import { GifDetailPage } from './components/GifDetailPage';
-import { LoadingScreen } from './components/LoadingScreen';
-import { UserProfileModal } from './components/UserProfileModal';
 import { LoginPage } from './components/LoginPage';
-import { GIF_CATEGORIES } from './data/categoriesData';
+import { ProfilePage } from './components/ProfilePage';
+import { SettingsPage } from './components/SettingsPage';
+import { ReportsAdminPage } from './components/ReportsAdminPage';
+import { UserProfileModal } from './components/UserProfileModal';
+import { Toast } from './components/Toast';
+import { LoadingScreen } from './components/LoadingScreen';
+import { UserProfile } from './types';
+import { getStoredUser, setAutoRedirectPreference } from './services/authService';
 import { searchOnlineGifs } from './services/gifSearch';
 import { extractTenorGifId } from './services/tenorScraper';
-import { getStoredUser } from './services/authService';
-import { UserProfile } from './types';
-import { BookOpen, ExternalLink, Server, Zap, User } from 'lucide-react';
 
-export default function App() {
-  const [currentPath, setCurrentPath] = useState<string>(
-    typeof window !== 'undefined' ? window.location.pathname : '/'
-  );
-
-  const [searchQuery, setSearchQuery] = useState<string>('');
+export function App() {
   const [activeCategory, setActiveCategory] = useState<string>('geral');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [isDocsOpen, setIsDocsOpen] = useState<boolean>(false);
-  const [isSearching, setIsSearching] = useState<boolean>(false);
-  
-  // User Profile & Google Login State
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getStoredUser());
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
-  
-  // Real-time live GIFs state
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getStoredUser());
+  const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Live Online Search State
   const [liveGifs, setLiveGifs] = useState<DisplayGif[]>([]);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
   const [nextPos, setNextPos] = useState<string | undefined>(undefined);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(true);
-  
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Router Location Listener
+  // Custom Router State
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    return typeof window !== 'undefined' ? window.location.pathname : '/';
+  });
+
+  // Listen to popstate (browser back/forward)
   useEffect(() => {
     const handlePopState = () => {
       setCurrentPath(window.location.pathname);
@@ -60,7 +72,7 @@ export default function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsAppLoading(false);
-    }, 300);
+    }, 200);
     return () => clearTimeout(timer);
   }, []);
 
@@ -68,7 +80,7 @@ export default function App() {
     setToastMessage(text);
     setTimeout(() => {
       setToastMessage(null);
-    }, 2000);
+    }, 2200);
   };
 
   // Current category data
@@ -131,7 +143,7 @@ export default function App() {
           }
         }
       } catch {
-        // Fallback silencioso usando a lista estrita da categoria
+        // Fallback silencioso
       } finally {
         if (isMounted) setIsSearching(false);
       }
@@ -163,89 +175,90 @@ export default function App() {
         tags: g.tags,
       }));
       setLiveGifs(catGifs);
-      setNextPos(undefined);
-      setHasMore(true);
       setIsSearching(false);
       return;
     }
 
-    setHasMore(true);
     setIsSearching(true);
-
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const result = await searchOnlineGifs(term, undefined, 30);
-        if (result.results && result.results.length > 0) {
-          const seenIds = new Set<string>();
+        const searchResult = await searchOnlineGifs(term, undefined, 40);
+        if (searchResult.results && searchResult.results.length > 0) {
+          const seenUrls = new Set<string>();
           const formatted: DisplayGif[] = [];
 
-          for (let i = 0; i < result.results.length; i++) {
-            const r = result.results[i];
+          for (let i = 0; i < searchResult.results.length; i++) {
+            const r = searchResult.results[i];
             const gifUrl = r.media[0]?.gif?.url || r.media[0]?.tinygif?.url || r.url;
             const gifId = extractTenorGifId(gifUrl) || r.id || `${i}`;
-            
-            if (gifUrl && !seenIds.has(gifId)) {
-              seenIds.add(gifId);
+
+            if (gifUrl && !seenUrls.has(gifUrl)) {
+              seenUrls.add(gifUrl);
               formatted.push({
                 id: r.id || `search-${gifId}-${i}`,
                 title: r.title || `${term} #${i + 1}`,
                 url: gifUrl,
-                category: result.categoryMatched || 'Geral',
+                category: searchResult.categoryMatched || 'Busca Online',
                 tags: r.tags || [term],
               });
             }
           }
 
           setLiveGifs(formatted);
-          setNextPos(result.next);
+          setNextPos(searchResult.next);
+          setHasMore(true);
         } else {
           setLiveGifs([]);
+          setHasMore(false);
         }
       } catch {
-        // Fallback
+        const lowerTerm = term.toLowerCase();
+        const localMatches: DisplayGif[] = [];
+        GIF_CATEGORIES.forEach((cat) => {
+          cat.gifs.forEach((g) => {
+            if (
+              g.title.toLowerCase().includes(lowerTerm) ||
+              g.tags.some((t) => t.toLowerCase().includes(lowerTerm))
+            ) {
+              localMatches.push({
+                id: g.id,
+                title: g.title,
+                url: g.url,
+                category: cat.name,
+                tags: g.tags,
+              });
+            }
+          });
+        });
+        setLiveGifs(localMatches);
+        setHasMore(false);
       } finally {
         setIsSearching(false);
       }
-    }, 200);
+    }, 280);
 
     return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
     };
   }, [searchQuery, currentCategoryData, currentPath]);
 
-  // Deduplicated Active GIFs strictly by URL and Tenor ID
+  // Combined List for Display
   const displayGifs = useMemo(() => {
-    const rawList = liveGifs.length > 0 ? liveGifs : (searchQuery.trim() ? [] : fallbackList);
-    const seenUrls = new Set<string>();
-    const seenIds = new Set<string>();
-    const unique: DisplayGif[] = [];
+    return liveGifs.length > 0 ? liveGifs : fallbackList;
+  }, [liveGifs, fallbackList]);
 
-    for (const item of rawList) {
-      if (!item.url) continue;
-      const tenorId = extractTenorGifId(item.url);
-      
-      if (!seenUrls.has(item.url) && !seenIds.has(tenorId)) {
-        seenUrls.add(item.url);
-        if (tenorId) seenIds.add(tenorId);
-        unique.push(item);
-      }
-    }
-    return unique;
-  }, [liveGifs, fallbackList, searchQuery]);
-
-  // Load More Handler (Triggered on Scroll)
+  // Handle Infinite Scroll Loading
   const handleLoadMoreGifs = async () => {
-    if (isLoadingMore || !hasMore) return;
-    setIsLoadingMore(true);
-    try {
-      const term = searchQuery.trim() || currentCategoryData.name;
-      const forcedCat = searchQuery.trim() ? undefined : currentCategoryData.id;
-      
-      const currentList = liveGifs.length > 0 ? liveGifs : fallbackList;
-      const currentPos = nextPos || `${currentList.length}`;
-      
-      const res = await searchOnlineGifs(term, forcedCat, 20, currentPos);
+    if (isLoadingMore || !hasMore || currentPath !== '/') return;
 
+    setIsLoadingMore(true);
+    const term = searchQuery.trim() || currentCategoryData.name;
+    const currentList = displayGifs;
+
+    try {
+      const res = await searchOnlineGifs(term, activeCategory, 20, nextPos);
       if (res.results && res.results.length > 0) {
         const base = liveGifs.length > 0 ? liveGifs : fallbackList;
         const existingUrls = new Set(base.map(g => g.url));
@@ -277,14 +290,13 @@ export default function App() {
           });
           setNextPos(res.next || `${currentList.length + newItems.length}`);
         } else {
-          // Nenhum item novo encontrado (chegou ao fim da busca)
           setHasMore(false);
         }
       } else {
         setHasMore(false);
       }
     } catch {
-      // Ignora erro silenciosamente durante scroll automático
+      // Ignora erro silenciosamente
     } finally {
       setIsLoadingMore(false);
     }
@@ -309,6 +321,42 @@ export default function App() {
     );
   }
 
+  if (currentPath === '/perfil' || currentPath === '/profile' || currentPath === '/me') {
+    return (
+      <ProfilePage
+        currentUser={currentUser}
+        onNavigate={handleNavigate}
+        onShowToast={showToast}
+        onUserChange={setCurrentUser}
+        onSelectGif={(url) => {
+          const gifId = extractTenorGifId(url) || 'gif';
+          handleNavigate(`/${gifId}`);
+        }}
+      />
+    );
+  }
+
+  if (currentPath === '/config' || currentPath === '/configuracoes' || currentPath === '/settings') {
+    return (
+      <SettingsPage
+        currentUser={currentUser}
+        onNavigate={handleNavigate}
+        onShowToast={showToast}
+        onUserChange={setCurrentUser}
+      />
+    );
+  }
+
+  if (currentPath === '/denunciar' || currentPath === '/moderacao' || currentPath === '/regras') {
+    return (
+      <ReportsAdminPage
+        currentUser={currentUser}
+        onNavigate={handleNavigate}
+        onShowToast={showToast}
+      />
+    );
+  }
+
   if (currentPath === '/documentacao' || currentPath === '/docs') {
     return <DocumentationPage onNavigate={handleNavigate} onShowToast={showToast} />;
   }
@@ -324,7 +372,7 @@ export default function App() {
           slug={currentPath} 
           onNavigate={handleNavigate} 
           onShowToast={showToast} 
-          onOpenAuth={() => setIsProfileModalOpen(true)}
+          onOpenAuth={() => handleNavigate('/login')}
         />
         <UserProfileModal
           isOpen={isProfileModalOpen}
@@ -348,7 +396,7 @@ export default function App() {
       {/* Main App Container */}
       <div className="w-full max-w-md min-h-screen bg-[#0e1621] flex flex-col pb-8">
         
-        {/* Top Header with Navigation Buttons & User Profile */}
+        {/* Top Header with 2016 Clean Styling */}
         <header className="pt-5 pb-3 px-4 flex items-center justify-between border-b border-[#1c2733]/70 mb-1">
           <div className="cursor-pointer" onClick={() => handleNavigate('/')}>
             <h1 className="text-xl font-black text-white tracking-tight uppercase flex items-center gap-1.5">
@@ -383,25 +431,29 @@ export default function App() {
             {/* Google Profile / Login Button */}
             {currentUser ? (
               <button
-                onClick={() => setIsProfileModalOpen(true)}
+                onClick={() => handleNavigate('/perfil')}
                 className="py-1 px-2 rounded-2xl bg-[#1c2733] hover:bg-[#253241] border border-[#253241] flex items-center gap-1.5 transition-all cursor-pointer shadow-sm group"
-                title="Meu Perfil"
+                title="Acessar Meu Perfil"
               >
                 <div className="relative">
                   <img
                     src={currentUser.avatar}
-                    alt={currentUser.name}
+                    alt={currentUser.nickname || currentUser.name}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.nickname || currentUser.name)}&background=2481cc&color=fff&size=150`;
+                    }}
                     className="w-6 h-6 rounded-full object-cover border border-[#2aabee]"
                   />
                   <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#10b981] border border-[#0e1621]" />
                 </div>
                 <span className="hidden sm:inline text-xs font-bold text-white max-w-[70px] truncate">
-                  {currentUser.name.split(' ')[0]}
+                  {currentUser.nickname || currentUser.name.split(' ')[0]}
                 </span>
               </button>
             ) : (
               <button
-                onClick={() => setIsProfileModalOpen(true)}
+                onClick={() => handleNavigate('/login')}
                 className="py-2 px-2.5 rounded-2xl bg-white hover:bg-neutral-100 text-neutral-900 transition-all text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-white/10 active:scale-95 cursor-pointer"
                 title="Fazer Login com Google"
               >
@@ -417,14 +469,14 @@ export default function App() {
           </div>
         </header>
 
-        {/* Global Search Bar without counter */}
+        {/* Global Search Bar */}
         <SearchBar
           query={searchQuery}
           onQueryChange={setSearchQuery}
           isSearching={isSearching}
         />
 
-        {/* Clean Category Bar with Horizontal Scroll Only */}
+        {/* Clean Category Bar */}
         {!searchQuery.trim() && (
           <CategorySelector
             activeCategory={activeCategory}
@@ -446,8 +498,8 @@ export default function App() {
           hasMore={hasMore}
         />
 
-        {/* Footer with Clean Tenor Attribution */}
-        <footer className="mt-10 pt-4 pb-6 text-center text-[11px] text-[#708499] px-4 space-y-2 border-t border-[#1c2733]/60">
+        {/* Footer with 2016-era layout */}
+        <footer className="mt-10 pt-4 pb-6 text-center text-[11px] text-[#708499] px-4 space-y-2.5 border-t border-[#1c2733]/60">
           <p className="font-bold text-white/80">Kaise Space Platform • 2026</p>
           <p className="text-[11px]">
             Agregador multi-provedor de GIFs e Figurinhas. Mídias fornecidas via{' '}
@@ -461,19 +513,34 @@ export default function App() {
               <ExternalLink className="w-2.5 h-2.5" />
             </a>
           </p>
-          <div className="flex items-center justify-center gap-3 pt-1">
+          
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
             <button
-              onClick={() => handleNavigate('/documentacao')}
-              className="text-[10px] text-[#2481cc] hover:underline font-semibold cursor-pointer"
+              onClick={() => handleNavigate('/perfil')}
+              className="text-[11px] text-[#2aabee] hover:underline font-semibold cursor-pointer"
             >
-              Documentação API
+              Meu Perfil
             </button>
             <span className="text-[#3a4856]">•</span>
             <button
-              onClick={() => handleNavigate('/api')}
-              className="text-[10px] text-[#2481cc] hover:underline font-semibold cursor-pointer"
+              onClick={() => handleNavigate('/config')}
+              className="text-[11px] text-[#2aabee] hover:underline font-semibold cursor-pointer"
             >
-              Portal API
+              Configurações
+            </button>
+            <span className="text-[#3a4856]">•</span>
+            <button
+              onClick={() => handleNavigate('/denunciar')}
+              className="text-[11px] text-[#ef4444] hover:underline font-semibold cursor-pointer"
+            >
+              Denúncias & Regras
+            </button>
+            <span className="text-[#3a4856]">•</span>
+            <button
+              onClick={() => handleNavigate('/documentacao')}
+              className="text-[11px] text-[#2481cc] hover:underline font-semibold cursor-pointer"
+            >
+              Documentação API
             </button>
           </div>
         </footer>
@@ -487,18 +554,10 @@ export default function App() {
         onShowToast={showToast}
       />
 
-      {/* Google User Profile Modal & Saved Favorites */}
-      <UserProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        currentUser={currentUser}
-        onShowToast={showToast}
-        onUserChange={setCurrentUser}
-        onNavigate={handleNavigate}
-      />
-
       {/* Floating Toast Notification */}
       <Toast message={toastMessage} />
     </div>
   );
 }
+
+export default App;

@@ -19,6 +19,7 @@ import { DisplayGif } from './GifGallery';
 import { searchOnlineGifs } from '../services/gifSearch';
 import { extractTenorGifId } from '../services/tenorScraper';
 import { toggleFavorite, checkIsFavorite, getStoredUser } from '../services/authService';
+import { GifCommentsSection } from './GifCommentsSection';
 
 interface GifDetailPageProps {
   slug: string;
@@ -374,6 +375,15 @@ export const GifDetailPage: React.FC<GifDetailPageProps> = ({ slug, onNavigate, 
             </div>
           )}
         </div>
+
+        {/* Dedicated Comments Section (Nested threads, edit, delete, report) */}
+        <GifCommentsSection
+          gifId={cleanSlug || gif.id}
+          gifTitle={gif.title}
+          currentUser={currentUser}
+          onOpenAuth={() => onOpenAuth ? onOpenAuth() : onNavigate('/login')}
+          onShowToast={onShowToast}
+        />
 
         {/* Related Stickers & GIFs Grid */}
         {relatedGifs.length > 0 && (

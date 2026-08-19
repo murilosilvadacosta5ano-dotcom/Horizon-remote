@@ -15,8 +15,10 @@ export interface TenorMediaObject {
 }
 
 export interface GifSource {
-  provider: string;
+  provider: string; // ex: 'tenor', 'giphy', 'kaise_local'
+  id: string;
   url: string;
+  attribution: string;
 }
 
 export interface TenorResultItem {
@@ -29,13 +31,6 @@ export interface TenorResultItem {
   media: TenorMediaObject[];
   tags?: string[];
   source?: GifSource;
-}
-
-export interface GifSource {
-  provider: string; // ex: 'tenor', 'giphy', 'kaise_local'
-  id: string;
-  url: string;
-  attribution: string;
 }
 
 export interface KaiseGifItem {
@@ -63,7 +58,7 @@ export interface KaiseApiResponse {
     next?: string;
     total: number;
   };
-  tenor_results?: TenorResultItem[]; // Para compatibilidade reversa Tenor API
+  tenor_results?: TenorResultItem[];
 }
 
 export interface GifCategory {
@@ -104,9 +99,49 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
-  avatar: string;
+  username: string; // Ex: @murilodev (público)
+  nickname: string; // Ex: Murilo (apelido exibido nos comentários)
+  avatar: string; // Foto de perfil escolhida (upload ou Google)
+  bio?: string; // Descrição / status do perfil
   birthDate?: string; // Formato: AAAA-MM-DD
   provider: 'google' | 'guest';
   createdAt: string;
+  termsAccepted?: boolean;
+  termsAcceptedAt?: string;
+  isBanned?: boolean;
+  banReason?: string;
   favorites: SavedFavoriteGif[];
+}
+
+export interface GifComment {
+  id: string;
+  gifId: string;
+  userId: string;
+  username: string;
+  nickname: string;
+  userAvatar: string;
+  content: string;
+  createdAt: string;
+  isEdited?: boolean;
+  editedAt?: string;
+  isReported?: boolean;
+  isRemoved?: boolean;
+  removalReason?: string;
+  parentId?: string | null;
+  replies?: GifComment[];
+}
+
+export interface CommentReport {
+  id: string;
+  commentId: string;
+  gifId: string;
+  reportedUserId: string;
+  reportedUsername: string;
+  commentContent: string;
+  reportedByUserId: string;
+  reportedByUsername: string;
+  reason: 'difamacao' | 'ofensa' | 'spam' | 'inadequado' | 'outro';
+  details: string;
+  createdAt: string;
+  status: 'pending' | 'removed_content' | 'user_banned' | 'dismissed';
 }
