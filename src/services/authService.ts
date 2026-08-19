@@ -7,9 +7,29 @@ const FAVORITES_KEY = 'kaise_saved_favorites';
 const AUTO_REDIRECT_KEY = 'kaise_auto_redirect_after_login';
 const PENDING_TERMS_USER_KEY = 'kaise_pending_terms_user';
 
-export const GOOGLE_CLIENT_ID = 
+export const DEFAULT_GOOGLE_CLIENT_ID = 
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) || 
-  "52193154892-u5lteb4ihfhpdw5rhezwjp.apps.googleusercontent.com";
+  "867223583700-u5lteb4ihfhpdw5rhezwjp.apps.googleusercontent.com";
+
+let cachedClientId: string | null = null;
+
+export async function getGoogleClientId(): Promise<string> {
+  if (cachedClientId) return cachedClientId;
+  try {
+    const res = await fetch('/api/auth/google/config');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.clientId) {
+        cachedClientId = data.clientId;
+        return data.clientId;
+      }
+    }
+  } catch (err) {
+    console.warn('Erro ao obter client_id dinâmico:', err);
+  }
+  cachedClientId = DEFAULT_GOOGLE_CLIENT_ID;
+  return cachedClientId;
+}
 
 declare global {
   interface Window {
@@ -216,82 +236,146 @@ export function fileToDataUrl(file: File): Promise<string> {
 }
 
 /**
- * Executa o Login REAL com o Google via Google Identity Services (GSI)
- * Abre a janela oficial do Google para o usuário selecionar a conta.
- * Obtém o nome real e a foto oficial da conta Google de forma autenticada.
+ * Executa o Login REAL com o Google via OAuth 2.0 Popup
+ * Abre a janela oficial do Google diretamente e recebe a resposta autenticada.
  */
 export async function performRealGoogleSignIn(): Promise<UserProfile> {
   const currentFavs = getStoredFavorites();
+  const clientId = await getGoogleClientId();
 
-  const isLoaded = await ensureGoogleGsiLoaded();
-  if (!isLoaded || !window.google?.accounts?.oauth2) {
-    throw new Error('Erro ao carregar o serviço de autenticação do Google. Verifique sua conexão e tente novamente.');
-  }
+  // 1. Tenta o Fluxo Direto Google OAuth 2.0 Popup com postMessage
+  try {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const redirectUri = `${origin}/auth/google/callback`;
+    const scopes = 'openid email profile https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
+    
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + 
+      `client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=token` +
+      `&scope=${encodeURIComponent(scopes)}` +
+      `&prompt=select_account` +
+      `&include_granted_scopes=true`;
 
-  // 1. Inicia o cliente OAuth2 do Google Identity Services
-  const tokenResponse = await new Promise<{ access_token?: string; error?: string; error_description?: string }>((resolve, reject) => {
-    try {
-      const client = window.google!.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: 'openid email profile https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
-        callback: (res) => {
-          if (res.error) {
-            if (res.error === 'popup_closed_by_user' || res.error === 'access_denied') {
-              reject(new Error('Login cancelado pelo usuário no popup do Google.'));
-            } else {
-              reject(new Error(res.error_description || res.error || 'Erro ao realizar login'));
-            }
-          } else if (res.access_token) {
-            resolve(res);
-          } else {
-            reject(new Error('Erro ao realizar login: resposta de autorização inválida do Google.'));
-          }
-        },
-        error_callback: (err) => {
-          reject(new Error(err?.message || 'Erro ao abrir janela de login do Google'));
+    const authPromise = new Promise<any>((resolve, reject) => {
+      let popupClosedChecker: NodeJS.Timeout;
+
+      const messageListener = (event: MessageEvent) => {
+        if (event.data?.type === 'GOOGLE_AUTH_SUCCESS' && event.data?.userinfo) {
+          window.removeEventListener('message', messageListener);
+          if (popupClosedChecker) clearInterval(popupClosedChecker);
+          resolve(event.data.userinfo);
+        } else if (event.data?.type === 'GOOGLE_AUTH_ERROR') {
+          window.removeEventListener('message', messageListener);
+          if (popupClosedChecker) clearInterval(popupClosedChecker);
+          reject(new Error(event.data.error || 'Erro na autenticação do Google'));
         }
-      });
+      };
 
-      client.requestAccessToken({ prompt: 'select_account' });
-    } catch (e: any) {
-      reject(new Error(e?.message || 'Erro ao iniciar autenticação Google'));
+      window.addEventListener('message', messageListener);
+
+      const width = 520;
+      const height = 640;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+
+      const popup = window.open(
+        googleAuthUrl,
+        'google_oauth_popup',
+        `width=${width},height=${height},left=${left},top=${top},status=no,toolbar=no,menubar=no,location=no`
+      );
+
+      if (!popup) {
+        window.removeEventListener('message', messageListener);
+        reject(new Error('A janela popup foi bloqueada pelo navegador. Permita popups para realizar login com o Google.'));
+        return;
+      }
+
+      popupClosedChecker = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(popupClosedChecker);
+          window.removeEventListener('message', messageListener);
+          setTimeout(() => {
+            reject(new Error('Login cancelado: a janela do Google foi fechada.'));
+          }, 600);
+        }
+      }, 800);
+    });
+
+    const gUser = await authPromise;
+    const displayName = gUser.name || gUser.given_name || 'Usuário';
+    const givenName = gUser.given_name || displayName.split(' ')[0] || 'Usuário';
+    const rawEmail = gUser.email || '';
+    const emailPrefix = rawEmail ? rawEmail.split('@')[0].replace(/[^a-z0-9_]/g, '') : givenName.toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+    const realUserProfile: UserProfile = {
+      id: `google_${gUser.sub || Math.random().toString(36).substring(2, 11)}`,
+      name: displayName,
+      username: `@${emailPrefix || 'usuario'}`,
+      nickname: givenName,
+      email: rawEmail,
+      avatar: gUser.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=2481cc&color=fff&size=200`,
+      bio: 'Colecionador de figurinhas e GIFs animados! ✨',
+      provider: 'google',
+      createdAt: new Date().toISOString(),
+      termsAccepted: false,
+      favorites: currentFavs
+    };
+
+    return realUserProfile;
+  } catch (err: any) {
+    if (err?.message && (err.message.includes('fechada') || err.message.includes('bloqueada') || err.message.includes('cancelado'))) {
+      throw err;
     }
-  });
 
-  if (!tokenResponse?.access_token) {
-    throw new Error('Erro ao realizar login com o Google.');
+    // 2. Fallback caso popup seja bloqueado: Google Identity Services (GSI)
+    if (typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
+      try {
+        const tokenResponse = await new Promise<{ access_token?: string; error?: string }>((resolve, reject) => {
+          const client = window.google!.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: 'openid email profile https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+            callback: (res) => {
+              if (res.access_token) resolve(res);
+              else reject(new Error(res.error || 'Erro no token Google'));
+            }
+          });
+          client.requestAccessToken({ prompt: 'select_account' });
+        });
+
+        if (tokenResponse.access_token) {
+          const userinfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+          });
+          if (userinfoRes.ok) {
+            const gUser = await userinfoRes.json();
+            const displayName = gUser.name || gUser.given_name || 'Usuário';
+            const givenName = gUser.given_name || displayName.split(' ')[0] || 'Usuário';
+            const rawEmail = gUser.email || '';
+            const emailPrefix = rawEmail ? rawEmail.split('@')[0].replace(/[^a-z0-9_]/g, '') : givenName.toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+            return {
+              id: `google_${gUser.sub || Math.random().toString(36).substring(2, 11)}`,
+              name: displayName,
+              username: `@${emailPrefix || 'usuario'}`,
+              nickname: givenName,
+              email: rawEmail,
+              avatar: gUser.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=2481cc&color=fff&size=200`,
+              bio: 'Colecionador de figurinhas e GIFs animados! ✨',
+              provider: 'google',
+              createdAt: new Date().toISOString(),
+              termsAccepted: false,
+              favorites: currentFavs
+            };
+          }
+        }
+      } catch (gsiErr) {
+        console.warn('GSI fallback falhou:', gsiErr);
+      }
+    }
+
+    throw new Error(err?.message || 'Erro ao realizar login com o Google.');
   }
-
-  // 2. Busca os dados reais do perfil diretamente da API oficial do Google
-  const userinfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-    headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-  });
-
-  if (!userinfoRes.ok) {
-    throw new Error('Erro ao obter dados da conta Google. Tente novamente.');
-  }
-
-  const gUser = await userinfoRes.json();
-  const displayName = gUser.name || gUser.given_name || 'Usuário';
-  const givenName = gUser.given_name || displayName.split(' ')[0] || 'Usuário';
-  const rawEmail = gUser.email || '';
-  const emailPrefix = rawEmail ? rawEmail.split('@')[0].replace(/[^a-z0-9_]/g, '') : givenName.toLowerCase().replace(/[^a-z0-9_]/g, '');
-
-  const realUserProfile: UserProfile = {
-    id: `google_${gUser.sub || Math.random().toString(36).substring(2, 11)}`,
-    name: displayName,
-    username: `@${emailPrefix || 'usuario'}`,
-    nickname: givenName,
-    email: rawEmail,
-    avatar: gUser.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=2481cc&color=fff&size=200`,
-    bio: 'Colecionador de figurinhas e GIFs animados! ✨',
-    provider: 'google',
-    createdAt: new Date().toISOString(),
-    termsAccepted: false,
-    favorites: currentFavs
-  };
-
-  return realUserProfile;
 }
 
 export function updateUserProfile(updates: Partial<UserProfile>): UserProfile {

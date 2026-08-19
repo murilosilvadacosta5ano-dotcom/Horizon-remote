@@ -77,6 +77,79 @@ async function startServer() {
     });
   });
 
+  app.get("/api/auth/google/config", (req, res) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || "867223583700-u5lteb4ihfhpdw5rhezwjp.apps.googleusercontent.com";
+    res.json({
+      clientId: clientId,
+      projectId: "gen-lang-client-0658878038",
+      projectNumber: "867223583700",
+      scopes: ["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
+    });
+  });
+
+  // Google OAuth Popup Callback Handler
+  app.get(["/auth/google/callback", "/api/auth/google/callback"], (req, res) => {
+    res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Kaise - Autenticação Google</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0e1621; color: #f5f5f5; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+    .card { background: #17212b; padding: 28px; border-radius: 20px; border: 1px solid #232e3c; max-width: 360px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+    .spinner { border: 3px solid #232e3c; border-top: 3px solid #2481cc; border-radius: 50%; width: 32px; height: 32px; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner"></div>
+    <h3 style="margin: 0 0 8px; font-size: 16px;">Concluindo Login Google...</h3>
+    <p style="font-size: 12px; color: #8293a4; margin: 0;">Sua sessão está sendo sincronizada. Esta janela fechará automaticamente.</p>
+  </div>
+  <script>
+    (async function() {
+      try {
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash || window.location.search);
+        const accessToken = params.get('access_token');
+        const idToken = params.get('id_token');
+        const error = params.get('error');
+
+        if (error) {
+          if (window.opener) {
+            window.opener.postMessage({ type: 'GOOGLE_AUTH_ERROR', error: error }, '*');
+          }
+          setTimeout(function() { window.close(); }, 1200);
+          return;
+        }
+
+        if (accessToken) {
+          const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { 'Authorization': 'Bearer ' + accessToken }
+          });
+          if (res.ok) {
+            const userinfo = await res.json();
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'GOOGLE_AUTH_SUCCESS',
+                userinfo: userinfo,
+                token: accessToken
+              }, '*');
+            }
+          }
+        }
+      } catch (e) {
+        console.error('OAuth Callback Error:', e);
+      } finally {
+        setTimeout(function() { window.close(); }, 600);
+      }
+    })();
+  </script>
+</body>
+</html>`);
+  });
+
   // Novos Endpoints da Kaise API v1
   app.get("/api/v1/search", (req, res) => handleV1Search(req, res));
   app.post("/api/v1/search", (req, res) => handleV1Search(req, res));
