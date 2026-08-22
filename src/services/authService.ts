@@ -159,12 +159,20 @@ export function getStoredUser(): UserProfile | null {
   }
 }
 
+import { syncUserProfileToFirestore, logSiteActivity } from './firebaseService';
+
 export function saveStoredUser(user: UserProfile | null): void {
   if (typeof window === 'undefined') return;
   if (!user) {
+    const current = getStoredUser();
+    if (current) {
+      logSiteActivity(current, 'LOGOUT', 'Usuário encerrou a sessão no site');
+    }
     localStorage.removeItem(STORAGE_KEY);
   } else {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    // Sincroniza em segundo plano com o Firebase Firestore
+    syncUserProfileToFirestore(user).catch(err => console.warn('Erro sync Firebase:', err));
   }
 }
 

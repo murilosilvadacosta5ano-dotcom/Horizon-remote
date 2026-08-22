@@ -24,6 +24,7 @@ import { LoginPage } from './components/LoginPage';
 import { ProfilePage } from './components/ProfilePage';
 import { SettingsPage } from './components/SettingsPage';
 import { ReportsAdminPage } from './components/ReportsAdminPage';
+import { BuscolSearchPage } from './components/BuscolSearchPage';
 import { UserProfileModal } from './components/UserProfileModal';
 import { Toast } from './components/Toast';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -357,6 +358,10 @@ export function App() {
     );
   }
 
+  if (currentPath === '/' || currentPath === '' || currentPath === '/buscol' || currentPath === '/pesquisar' || currentPath === '/search') {
+    return <BuscolSearchPage onNavigate={handleNavigate} onShowToast={showToast} />;
+  }
+
   if (currentPath === '/documentacao' || currentPath === '/docs') {
     return <DocumentationPage onNavigate={handleNavigate} onShowToast={showToast} />;
   }
@@ -410,6 +415,15 @@ export function App() {
 
           {/* Navigation & Profile Action Links */}
           <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => handleNavigate('/buscol')}
+              className="py-2 px-2.5 rounded-2xl bg-[#d97757]/15 hover:bg-[#d97757]/25 text-[#d97757] hover:text-[#e88868] transition-all text-xs font-bold flex items-center gap-1 border border-[#d97757]/30 cursor-pointer shadow-sm"
+              title="Buscol AI Search & Assistente da API"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#d97757]" />
+              <span>Buscol</span>
+            </button>
+
             <button
               onClick={() => handleNavigate('/api')}
               className="py-2 px-2.5 rounded-2xl bg-[#1c2733] hover:bg-[#22303f] active:bg-[#161f2a] text-[#8293a4] hover:text-white transition-all text-xs font-bold flex items-center gap-1 border border-[#253241] cursor-pointer shadow-sm"
@@ -546,6 +560,20 @@ export function App() {
         </footer>
 
       </div>
+
+      {/* Floating Buscol AI Assistant Button */}
+      <button
+        onClick={() => handleNavigate('/buscol')}
+        className="fixed bottom-5 right-5 bg-[#191818] hover:bg-[#262424] text-[#d97757] border border-[#3a3838] p-3.5 rounded-full shadow-2xl flex items-center gap-2.5 transition-all hover:scale-105 active:scale-95 z-40 cursor-pointer group"
+        title="Perguntar ao Buscol AI (API, Bots, GIFs)"
+      >
+        <svg className="w-5 h-5 text-[#d97757] animate-pulse" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0 L13.2 9.8 L23 11 L13.2 12.2 L12 22 L10.8 12.2 L1 11 L10.8 9.8 Z"/>
+        </svg>
+        <span className="text-xs font-serif italic text-[#e8e6e3] font-medium hidden sm:inline group-hover:text-[#d97757] transition-colors">
+          Buscol AI
+        </span>
+      </button>
 
       {/* Complete Documentation & API Modal */}
       <DocumentationModal

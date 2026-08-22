@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   ArrowLeft, 
@@ -11,10 +11,14 @@ import {
   Ban, 
   MessageSquare,
   Send,
-  Clock
+  Clock,
+  Activity,
+  Database,
+  RefreshCw
 } from 'lucide-react';
 import { UserProfile, CommentReport } from '../types';
 import { getAllReports } from '../services/commentsService';
+import { fetchRecentSiteLogs, SiteActivityLog } from '../services/firebaseService';
 
 interface ReportsAdminPageProps {
   currentUser: UserProfile | null;
@@ -28,6 +32,19 @@ export const ReportsAdminPage: React.FC<ReportsAdminPageProps> = ({
   onShowToast
 }) => {
   const [reports, setReports] = useState<CommentReport[]>(() => getAllReports());
+  const [siteLogs, setSiteLogs] = useState<SiteActivityLog[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState<boolean>(false);
+
+  const loadLogs = async () => {
+    setIsLoadingLogs(true);
+    const logs = await fetchRecentSiteLogs(25);
+    setSiteLogs(logs);
+    setIsLoadingLogs(false);
+  };
+
+  useEffect(() => {
+    loadLogs();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#0e1621] text-[#f5f5f5] flex flex-col items-center py-6 px-4 selection:bg-[#2481cc]/30">
@@ -181,6 +198,66 @@ export const ReportsAdminPage: React.FC<ReportsAdminPageProps> = ({
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>{rep.status === 'removed_content' ? 'Comentário Removido' : rep.status === 'user_banned' ? 'Usuário Banido' : 'Em Análise'}</span>
                     </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Live Firebase Activity & Access Logs */}
+        <div className="bg-[#17212b] border border-[#232e3c] rounded-3xl p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#232e3c]">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-[#2481cc]" />
+              <h3 className="text-sm font-black text-white">
+                Logs de Acesso e Login no Firebase ({siteLogs.length})
+              </h3>
+            </div>
+            
+            <button
+              onClick={loadLogs}
+              disabled={isLoadingLogs}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#0e1621] hover:bg-[#1a2636] border border-[#232e3c] text-xs font-semibold text-[#8293a4] hover:text-white transition-all cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLogs ? 'animate-spin text-[#2481cc]' : ''}`} />
+              <span>Atualizar Logs</span>
+            </button>
+          </div>
+
+          {isLoadingLogs && siteLogs.length === 0 ? (
+            <div className="text-center py-6 text-xs text-[#8293a4]">
+              Carregando registros do Firebase Firestore...
+            </div>
+          ) : siteLogs.length === 0 ? (
+            <div className="text-center py-6 text-xs text-[#8293a4]">
+              Nenhum log gravado no Firestore ainda. Fazer login no site gerará logs automaticamente! ⚡
+            </div>
+          ) : (
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1 scrollbar-none">
+              {siteLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="bg-[#0e1621] border border-[#232e3c] rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded uppercase tracking-wider ${
+                      log.action === 'LOGIN_SUCCESS' ? 'bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30' :
+                      log.action === 'LOGOUT' ? 'bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30' :
+                      'bg-[#2481cc]/15 text-[#2481cc] border border-[#2481cc]/30'
+                    }`}>
+                      {log.action}
+                    </span>
+                    <div>
+                      <span className="font-bold text-white">{log.userName}</span>
+                      {log.userEmail && <span className="text-[#8293a4] text-[11px] ml-1.5">({log.userEmail})</span>}
+                      <p className="text-[11px] text-[#708499] mt-0.5">{log.details}</p>
+                    </div>
+                  </div>
+
+                  <div className="text-right sm:shrink-0 text-[10px] text-[#708499]">
+                    <div>{log.dateFormatted}</div>
+                    <div className="text-[#2481cc] font-mono mt-0.5">{log.origin}</div>
                   </div>
                 </div>
               ))}

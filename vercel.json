@@ -1,16 +1,12 @@
 {
   "rewrites": [
     {
-      "source": "/api/gifs",
-      "destination": "/api/gifs"
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
     },
     {
-      "source": "/api/categories",
-      "destination": "/api/categories"
-    },
-    {
-      "source": "/v1/search",
-      "destination": "/api/gifs"
+      "source": "/auth/(.*)",
+      "destination": "/auth/$1"
     },
     {
       "source": "/(.*)",

@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Perfil de usuário registrado no Kaise Space",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "nickname": { "type": "string" },
+        "email": { "type": "string" },
+        "avatar": { "type": "string" },
+        "bio": { "type": "string" },
+        "provider": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "username"]
+    },
+    "FavoriteGif": {
+      "title": "FavoriteGif",
+      "description": "Figurinha ou GIF favoritado pelo usuário",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "gifUrl": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "addedAt": { "type": "string" }
+      },
+      "required": ["id", "gifUrl"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Log de login e atividades no Kaise Space",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Coleção de perfis de usuário"
+    },
+    "/users/{userId}/favorites/{gifId}": {
+      "schema": "FavoriteGif",
+      "description": "Coleção de figurinhas salvas pelo usuário"
+    },
+    "/logs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Logs de acessos e logins do Kaise Space"
+    }
+  }
+}
