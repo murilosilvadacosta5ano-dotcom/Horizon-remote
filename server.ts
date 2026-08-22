@@ -8,6 +8,7 @@ import handleV1Random from "./api/v1/random";
 import handleV1Categories from "./api/v1/categories";
 import handleV1Gifs from "./api/v1/gifs";
 import { apiRateLimit } from "./src/middleware/rateLimit";
+import { processQueryApi } from "./src/services/intelligenceService";
 
 async function startServer() {
   const app = express();
@@ -231,6 +232,72 @@ async function startServer() {
       total_categories: GIF_CATEGORIES.length
     });
   });
+
+  // =========================================================================
+  // RAW TEXT RESPONSE ENDPOINT FOR EXTERNAL SITES / BOTS / WEBSITES
+  // Format: /API/query:pergunta or /api/query:pergunta or /query:pergunta
+  // Returns ONLY the pure plain text answer without JSON, HTML, or metadata!
+  // =========================================================================
+  const handleRawTextQueryRequest = async (req: express.Request, res: express.Response) => {
+    try {
+      // Extract raw query from path parameter or query string
+      let rawQuery = 
+        (req.params.query as string) || 
+        (req.query.query as string) || 
+        (req.query.q as string) || 
+        '';
+
+      // Clean leading colon or quotes if present (e.g., query:"pergunta" or query:pergunta)
+      rawQuery = rawQuery.replace(/^[:"'\s]+|["'\s]+$/g, '').trim();
+
+      if (!rawQuery) {
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        return res.status(400).send("Por favor, forneça uma pergunta após query: ou no parâmetro q.");
+      }
+
+      const decodedQuery = decodeURIComponent(rawQuery).trim();
+
+      // Process with Kaise AI
+      const result = await processQueryApi(decodedQuery);
+
+      // Return ONLY raw text response
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.status(200).send(result.answer);
+    } catch (error: any) {
+      console.error("Erro no endpoint de texto puro:", error);
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.status(500).send("Erro ao processar resposta da IA.");
+    }
+  };
+
+  // Plain Text Direct Routes (Support both uppercase /API/ and lowercase /api/ and direct /query:)
+  app.get(["/API/query::query", "/api/query::query", "/API/query*", "/api/query*", "/query::query"], handleRawTextQueryRequest);
+  app.post(["/API/query", "/api/query"], handleRawTextQueryRequest);
+
+  // JSON API Endpoints for /api/ask
+  const handleJsonQueryRequest = async (req: express.Request, res: express.Response) => {
+    try {
+      const rawQuery = 
+        (req.query.query as string) || 
+        (req.query.q as string) || 
+        (req.body?.query as string) || 
+        (req.body?.q as string) || 
+        '';
+
+      const decodedQuery = decodeURIComponent(rawQuery).trim();
+      if (!decodedQuery) {
+        return res.status(400).json({ status: "error", message: "Envie o parâmetro 'query' ou 'q'." });
+      }
+
+      const result = await processQueryApi(decodedQuery);
+      return res.json({ status: "success", ...result });
+    } catch (error: any) {
+      return res.status(500).json({ status: "error", message: error?.message || String(error) });
+    }
+  };
+
+  app.get(["/api/ask", "/api/v1/ask"], handleJsonQueryRequest);
+  app.post(["/api/ask", "/api/v1/ask"], handleJsonQueryRequest);
 
   // Vite middleware
   if (process.env.NODE_ENV !== "production") {

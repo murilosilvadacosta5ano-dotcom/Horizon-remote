@@ -514,3 +514,80 @@ int main() {
   };
 }
 
+/**
+ * Processa qualquer pergunta para ser enviada diretamente via API/Link HTTP
+ */
+export async function processQueryApi(query: string): Promise<{
+  query: string;
+  category: string;
+  answer: string;
+  details?: any;
+  sourceUrl?: string;
+  timestamp: string;
+}> {
+  const clean = (query || '').trim();
+  if (!clean) {
+    return {
+      query: '',
+      category: 'error',
+      answer: 'Nenhuma pergunta foi fornecida. Por favor envie a pergunta na URL.',
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // 1. Casual Greeting
+  const greeting = checkCasualGreeting(clean);
+  if (greeting) {
+    return {
+      query: clean,
+      category: 'casual',
+      answer: greeting,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // 2. Math Expression
+  const mathResult = solveMathExpression(clean);
+  if (mathResult) {
+    return {
+      query: clean,
+      category: 'math',
+      answer: `${mathResult.expression} = ${mathResult.result}. ${mathResult.explanation}`,
+      details: mathResult,
+      sourceUrl: mathResult.sourceUrl,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // 3. Code Generation
+  const lower = clean.toLowerCase();
+  if (['código', 'codigo', 'python', 'javascript', 'script', 'função', 'funcao', 'sql', 'html', 'css'].some(w => lower.includes(w))) {
+    const codeData = generateCodeSolution(clean);
+    return {
+      query: clean,
+      category: 'code',
+      answer: `${codeData.title}\n\nLinguagem: ${codeData.language}\n\nCódigo:\n${codeData.code}\n\nComo Executar:\n${codeData.howToRun.join('\n')}`,
+      details: codeData,
+      sourceUrl: codeData.sourceUrl,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // 4. Deep Search / Summaries / Web
+  const searchData = await performDeepSearch(clean);
+  const formattedAnswer = [
+    searchData.summaryTitle ? `## ${searchData.summaryTitle}` : '',
+    searchData.quickSummary || searchData.deepAnalysis?.overview || '',
+    searchData.deepAnalysis?.keyPoints ? `\n• ${searchData.deepAnalysis.keyPoints.join('\n• ')}` : '',
+    searchData.deepAnalysis?.curiositiesOrImpact ? `\n\nImpacto / Curiosidades: ${searchData.deepAnalysis.curiositiesOrImpact}` : ''
+  ].filter(Boolean).join('\n\n');
+
+  return {
+    query: clean,
+    category: searchData.isBiographySummary ? 'summary' : 'general',
+    answer: formattedAnswer || 'Informação processada pela inteligência Kaise.',
+    details: searchData,
+    timestamp: new Date().toISOString()
+  };
+}
+
